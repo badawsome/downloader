@@ -1,0 +1,10 @@
+[package]
+name = "dc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bili = { path = "../../service/bili" }
+clap.workspace = true
+tokio.workspace = true
+anyhow = { version = "*" }
