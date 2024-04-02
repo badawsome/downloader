@@ -1,7 +1,37 @@
 use std::collections::HashMap;
 
+use derive_builder::Builder;
 use derive_getters::Getters;
 use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize, Getters, Builder)]
+pub struct SeasonList {
+    season_id: u64,
+    season_name: String,
+    owner: Owner,
+    sections: Vec<BasicView>,
+}
+
+#[derive(Debug, Clone, Deserialize, Getters)]
+pub struct BasicView {
+    aid: u64,
+    bvid: String,
+    cid: u64,
+    title: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Getters)]
+pub struct View {
+    aid: u64,
+    bvid: String,
+    cid: u64,
+    title: String,
+    owner: Owner,
+    #[serde(rename = "pic")]
+    pic_url: String,
+    is_season_display: Option<bool>,
+    season_id: Option<u64>,
+}
 
 #[derive(Debug, Clone)]
 pub enum VideoId {
@@ -18,10 +48,13 @@ impl std::fmt::Display for VideoId {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Getters)]
 pub struct Owner {
-    mid: u64,
+    #[serde(rename = "mid")]
+    uid: u64,
     name: String,
+    #[serde(rename = "face")]
+    face_url: String,
 }
 
 #[derive(Debug, Deserialize, Getters)]
@@ -35,10 +68,10 @@ pub struct VideoMetadata {
 #[derive(Debug, Deserialize, Getters)]
 pub struct DownloadInfo {
     // accept_quality: Vec<u32>,
-    durl: Vec<DurlInfo>,
+    pub durl: Vec<DurlInfo>,
 }
 
-#[derive(Debug, Deserialize, Getters)]
+#[derive(Debug, Clone, Deserialize, Getters)]
 pub struct DurlInfo {
     size: u64,
     url: String,
@@ -46,7 +79,7 @@ pub struct DurlInfo {
 
 #[derive(Debug, Getters)]
 pub struct DownloadParam {
-    pub info: DownloadInfo,
+    pub info: DurlInfo,
     pub chunk_size: Option<u64>,
     pub conn_pool: Option<u8>,
 }

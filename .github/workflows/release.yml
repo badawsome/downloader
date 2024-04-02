@@ -21,11 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          # Platforms that don't work:
-          #
-          # - sparc64-unknown-linux-gnu - cannot compile openssl-sys
-          # - x86_64-unknown-illumos - weird error compiling openssl - "bin/sh: 1: granlib: not found"
-
           - os_name: FreeBSD-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-freebsd
@@ -126,8 +121,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Configure Git
         run: |
-          git config --global user.email "jdoe@example.com"
-          git config --global user.name "J. Doe"
+          git config --global user.email "badcw123@gmail.com"
+          git config --global user.name "badcw"
       - name: Install musl-tools on Linux
         run: sudo apt-get update --yes && sudo apt-get install --yes musl-tools
         if: contains(matrix.platform.name, 'musl')

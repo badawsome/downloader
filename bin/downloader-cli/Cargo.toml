@@ -8,3 +8,4 @@ bili = { path = "../../service/bili" }
 clap.workspace = true
 tokio.workspace = true
 anyhow = { version = "*" }
+indicatif = { version = "0.17.8" }

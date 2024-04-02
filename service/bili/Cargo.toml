@@ -14,7 +14,10 @@ serde_json.workspace = true
 thiserror.workspace = true
 reqwest.workspace = true
 futures-util.workspace = true
+futures.workspace = true
+tokio-util.workspace = true
 
+derive_builder = { version = "0.20.0" }
 derive-getters = { version = "0.3.0" }
 
 [dev-dependencies]

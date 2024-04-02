@@ -11,3 +11,6 @@
 - video page
 - deal with err(timeout/param/status_code)
 - cookie
+- github workflow publish
+- WBI Signed
+- progress report
