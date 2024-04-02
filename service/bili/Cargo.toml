@@ -2,6 +2,10 @@
 name = "bili"
 version = "0.1.0"
 edition = "2021"
+authors = ["badcw <badcw123@gmail.com>"]
+description = "a package to get bili api"
+license-file = "LICENSE"
+repository = "https://github.com/badawsome/downloader"
 
 [dependencies]
 tokio.workspace = true
