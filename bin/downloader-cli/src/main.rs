@@ -1,5 +1,10 @@
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
+static mut RT: Option<&tokio::runtime::Runtime> = None;
+
+pub fn rt() -> &'static tokio::runtime::Runtime {
+    unsafe { RT.unwrap() }
+}
 
 const CHUNK_SIZE: u64 = 4 * 1024 * 1024;
 const CONN_POOL_SIZE: u8 = 8;
@@ -31,8 +36,12 @@ use tokio::task::JoinSet;
 
 fn main() {
     let cli = Cli::parse();
-    let rt = tokio::runtime::Runtime::new().expect("init tokio failed");
-    rt.block_on(async move { anyhow_downolad(cli).await })
+    unsafe {
+        RT = Some(std::boxed::Box::leak(std::boxed::Box::new(
+            tokio::runtime::Runtime::new().expect("init tokio runtime failed"),
+        )));
+    }
+    rt().block_on(async move { anyhow_downolad(cli).await })
         .expect("dc failed!");
 }
 
@@ -60,7 +69,7 @@ async fn download_season(
             Err(_) => VideoId::BVID(id.to_owned()),
         })
         .collect::<Vec<_>>();
-    let mut fg: JoinSet<anyhow::Result<()>> = tokio::task::JoinSet::new();
+    let mut fg: JoinSet<anyhow::Result<tokio::fs::File>> = tokio::task::JoinSet::new();
     let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(3));
     let p = indicatif::MultiProgress::new();
     for id in ids {
@@ -79,12 +88,25 @@ async fn download_season(
 
                         for section in season_list.sections().into_iter() {
                             // step2: create file
+
+                            let music_title = {
+                                let res = s
+                                    .get_music_info(&(
+                                        VideoId::BVID(section.bvid().clone()),
+                                        *section.cid(),
+                                    ))
+                                    .await;
+                                match res {
+                                    Ok(res) => res.title().clone(),
+                                    Err(_) => section.title().clone(),
+                                }
+                            };
                             let file_path: std::path::PathBuf = [
                                 "./",
                                 folder_path,
                                 format!(
                                     "{}-{}.mp4",
-                                    normalization_file_name(section.title().to_owned()),
+                                    normalization_file_name(music_title),
                                     section.bvid()
                                 )
                                 .as_str(),
@@ -104,7 +126,6 @@ async fn download_season(
                                         e.to_string()
                                     )
                                 })?;
-
                             // step3: start download
                             let permit = std::sync::Arc::clone(&sem).acquire_owned().await?;
                             let s = s.clone();
@@ -120,7 +141,7 @@ async fn download_season(
                                     p,
                                 )
                                 .await?;
-                                Ok(())
+                                Ok(f)
                             });
                         }
                     }
@@ -131,7 +152,7 @@ async fn download_season(
         };
     }
     while let Some(f) = fg.join_next().await {
-        f??;
+        f??.sync_all().await?;
     }
     Ok(())
 }
@@ -147,14 +168,23 @@ async fn downloads(s: std::sync::Arc<Service<'static>>, ids: Vec<VideoId>) -> an
         fg.spawn(async move {
             let _permit = permit;
             let basic_info = s.get_basic_info(&id).await?;
-            tokio::fs::create_dir_all("tests_download").await?;
+
+            let music_title = {
+                let res = s.get_music_info(&(id.clone(), *basic_info.cid())).await;
+                match res {
+                    Ok(res) => res.title().clone(),
+                    Err(_) => basic_info.title().clone(),
+                }
+            };
+
             let mut file = tokio::fs::File::create(format!(
                 "{}-{}.mp4",
-                normalization_file_name(basic_info.title().to_owned()),
+                normalization_file_name(music_title),
                 id
             ))
             .await?;
             download_writer(s, &mut file, id, *basic_info.cid(), p).await?;
+            file.sync_all().await?;
             Ok(())
         });
     }

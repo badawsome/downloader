@@ -1,0 +1,7 @@
+option go_package = "/hx";
+
+package base;
+
+message Base {
+    map<string, string> Extra = 255;
+}

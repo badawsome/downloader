@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option go_package = "/hx";
+
+import "base.proto";
+package facade.items;
+
+// A snazzy new shirt!
+message Shirt {
+    enum Size {
+        SMALL = 0;
+        MEDIUM = 1;
+        LARGE = 2;
+    }
+
+    string color = 1;
+    Size size = 2;
+}
+
+message ShirtReq {
+    int64 id = 1;
+    base.Base base = 255;
+}
+
+service ItemS {
+    rpc GetShirt(ShirtReq) returns(Shirt);
+}

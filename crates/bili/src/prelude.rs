@@ -41,3 +41,9 @@ pub trait SeasonService {
 pub trait SearchService {
     fn search_by_keyword<T, O>(key: String, search_type: T, search_opts: Option<O>);
 }
+
+pub trait MusicService {
+    type Id;
+    type BasicMusicInfo;
+    fn get_music_info(self, id: &Self::Id) -> impl std::future::Future<Output = Result<Self::BasicMusicInfo>> + Send;
+}
