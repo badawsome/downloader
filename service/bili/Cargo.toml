@@ -1,24 +1,8 @@
 [package]
-name = "bili"
-version = "0.1.1"
+name = "bili-service"
+version = "0.1.0"
 edition = "2021"
-authors = ["badcw <badcw123@gmail.com>"]
-description = "a package to get bili api"
-license-file = "LICENSE"
-repository = "https://github.com/badawsome/downloader"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-thiserror.workspace = true
-reqwest.workspace = true
-futures-util.workspace = true
-futures.workspace = true
-tokio-util.workspace = true
-
-derive_builder = { version = "0.20.0" }
-derive-getters = { version = "0.3.0" }
-
-[dev-dependencies]
-anyhow = { version = "1" }
