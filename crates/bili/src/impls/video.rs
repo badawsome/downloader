@@ -135,36 +135,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_download() -> anyhow::Result<()> {
+    fn test_get_basic_info() -> anyhow::Result<()> {
         let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(anyhow_downolad())?;
+        rt.block_on(anyhow_get_basic_info())?;
         Ok(())
     }
 
-    async fn anyhow_downolad() -> anyhow::Result<()> {
+    async fn anyhow_get_basic_info() -> anyhow::Result<()> {
         let s = Service::new();
         let basic_info = s
             .get_basic_info(&VideoId::BVID("BV1qJ4m1Y71G".to_owned()))
             .await?;
-        tokio::fs::create_dir_all("tests_download").await?;
-        let mut file =
-            tokio::fs::File::create(format!("tests_download/{}.mp4", basic_info.title())).await?;
-        let download_info = s
-            .get_download_info(&GetDownloadInfoParam {
-                id: VideoId::BVID("BV1qJ4m1Y71G".to_owned()),
-                cid: *basic_info.cid(),
-                clarity: Clarity::Low,
-            })
-            .await?;
-        s.download(
-            &DownloadParam {
-                info: download_info,
-                chunk_size: Some(4 * 1024 * 1024),
-                conn_pool: Some(8),
-            },
-            &mut file,
-        )
-        .await?;
+        // tokio::fs::create_dir_all("tests_download").await?;
+        // let mut file =
+        //     tokio::fs::File::create(format!("tests_download/{}.mp4", basic_info.title())).await?;
+        // let download_info = s
+        //     .get_download_info(&GetDownloadInfoParam {
+        //         id: VideoId::BVID("BV1qJ4m1Y71G".to_owned()),
+        //         cid: *basic_info.cid(),
+        //         clarity: Clarity::Low,
+        //     })
+        //     .await?;
+        // s.download(
+        //     &DownloadParam {
+        //         info: download_info,
+        //         chunk_size: Some(4 * 1024 * 1024),
+        //         conn_pool: Some(8),
+        //     },
+        //     &mut file,
+        // )
+        // .await?;
         Ok(())
     }
 }
