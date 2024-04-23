@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use derive_builder::Builder;
 use derive_getters::Getters;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Getters, Builder)]
 pub struct SeasonList {
@@ -33,7 +33,7 @@ pub struct View {
     season_id: Option<u64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VideoId {
     AID(u64),
     BVID(String),
@@ -130,9 +130,16 @@ pub enum Clarity {
     Default,
 }
 
+#[derive(Debug, Clone)]
 pub enum Protocol {
     HTTP,
     HTTPS,
+}
+
+impl Default for Protocol {
+    fn default() -> Self {
+        Protocol::HTTPS
+    }
 }
 
 impl Protocol {
