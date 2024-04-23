@@ -1,7 +1,7 @@
 use derive_getters::Getters;
 use serde::{Deserialize, Serialize};
 
-use self::prelude::MusicService;
+use self::facade::MusicService;
 
 use super::*;
 
@@ -61,7 +61,7 @@ impl<'a> MusicService for &Service<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
+    use crate::facade::*;
 
     #[tokio::test]
     async fn test_music_info() -> anyhow::Result<()> {

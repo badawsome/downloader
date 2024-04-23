@@ -1,3 +1,4 @@
+mod downloader;
 mod music;
 mod video;
 mod season;
@@ -8,6 +9,7 @@ pub use season::*;
 
 use super::*;
 
+#[derive(Debug, Default, Clone)]
 pub struct Service<'a> {
     api_host: &'a str,
     protocol: Protocol,

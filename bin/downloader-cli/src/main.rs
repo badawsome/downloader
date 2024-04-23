@@ -31,7 +31,7 @@ enum Commands {
     },
 }
 
-use bili::{prelude::*, *};
+use bili::{facade::*, *};
 use tokio::task::JoinSet;
 
 fn main() {

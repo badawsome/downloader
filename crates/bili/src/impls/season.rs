@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> prelude::SeasonService for &Service<'a> {
+impl<'a> facade::SeasonService for &Service<'a> {
     // GET /x/web-interface/view/detail
     async fn get_video_relation_season_list(
         self,
@@ -118,7 +118,7 @@ impl<'a> prelude::SeasonService for &Service<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
+    use crate::facade::*;
 
     #[tokio::test]
     async fn test_season_list() -> anyhow::Result<()> {

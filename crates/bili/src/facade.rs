@@ -15,10 +15,12 @@ pub trait VideoService {
         self,
         param: &GetDownloadInfoParam,
     ) -> impl std::future::Future<Output = Result<DurlInfo>> + Send;
+}
 
+pub trait Downloader<Param> {
     fn download<'a, W>(
         self,
-        param: &DownloadParam,
+        param: Param,
         writer: W,
     ) -> impl std::future::Future<Output = Result<()>> + Send
     where
@@ -45,5 +47,8 @@ pub trait SearchService {
 pub trait MusicService {
     type Id;
     type BasicMusicInfo;
-    fn get_music_info(self, id: &Self::Id) -> impl std::future::Future<Output = Result<Self::BasicMusicInfo>> + Send;
+    fn get_music_info(
+        self,
+        id: &Self::Id,
+    ) -> impl std::future::Future<Output = Result<Self::BasicMusicInfo>> + Send;
 }
