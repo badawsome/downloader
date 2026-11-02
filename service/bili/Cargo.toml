@@ -1,8 +1,16 @@
 [package]
 name = "bili-service"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Resolve bilibili inputs into audio tracks and download them with metadata"
 
 [dependencies]
+bili.workspace = true
+media.workspace = true
+network-tools.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

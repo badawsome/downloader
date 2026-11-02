@@ -1,11 +1,16 @@
 [package]
 name = "dc"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+description = "bilibili audio downloader: best quality audio with metadata, resumable parallel downloads"
 
 [dependencies]
-bili = { path = "../../crates/bili" }
+bili-service.workspace = true
 clap.workspace = true
 tokio.workspace = true
-anyhow = { version = "*" }
+anyhow.workspace = true
+futures-util.workspace = true
 indicatif = { version = "0.17.8" }
+# pure Rust, no image backend needed for terminal rendering
+qrcode = { version = "0.14", default-features = false }
+dirs = { version = "5" }

@@ -4,18 +4,27 @@ members = ["crates/*", "bin/*", "service/*"]
 exclude = ["crates/facade"]
 resolver = "2"
 
+[workspace.package]
+edition = "2021"
+repository = "https://github.com/badawsome/downloader"
+
 [workspace.dependencies]
-clap = { version = "4.5.4", features = ["derive"] }
-reqwest = { version = "0.12.2", default-features = false, features = [
+# Everything here is pure Rust (TLS via rustls + ring, bundled webpki roots):
+# no OpenSSL, FFmpeg, protoc or other system libraries are required.
+clap = { version = "4.5", features = ["derive", "env"] }
+reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "json",
-    "stream",
+    "gzip",
 ] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 thiserror = { version = "1" }
 futures-util = { version = "0.3.30" }
-futures = { version = "0.3.30" }
-tokio-util = { version = "0.7.10" }
-bytes = { version = "1.6.0" }
+anyhow = { version = "1" }
+
+bili = { path = "crates/bili" }
+media = { path = "crates/media" }
+network-tools = { path = "crates/network-tools" }
+bili-service = { path = "service/bili" }
