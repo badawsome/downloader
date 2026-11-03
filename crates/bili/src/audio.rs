@@ -162,6 +162,27 @@ fn sort_urls(urls: &mut [String]) {
 }
 
 impl PlayUrl {
+    /// Qualities this video has but which were withheld from the current
+    /// session (bilibili flags them without sending the stream). Typically
+    /// Hi-Res / Dolby for anonymous or non-VIP accounts. Best first.
+    pub fn locked_qualities(&self) -> Vec<AudioQuality> {
+        let Some(dash) = &self.dash else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        if let Some(flac) = &dash.flac {
+            if flac.display && flac.audio.is_none() {
+                out.push(AudioQuality::HiRes);
+            }
+        }
+        if let Some(dolby) = &dash.dolby {
+            if dolby.kind != 0 && dolby.audio.as_ref().is_none_or(|a| a.is_empty()) {
+                out.push(AudioQuality::Dolby);
+            }
+        }
+        out
+    }
+
     /// Every audio stream offered, best first.
     pub fn audio_streams(&self) -> Vec<AudioStream> {
         let mut out = Vec::new();
@@ -323,6 +344,22 @@ mod tests {
             }),
             AudioQuality::K132
         );
+    }
+
+    #[test]
+    fn locked_tiers() {
+        let anon: PlayUrl = serde_json::from_value(serde_json::json!({"dash": {
+            "audio": [stream(30280, 1)],
+            "dolby": {"type": 1, "audio": null},
+            "flac": {"display": true, "audio": null},
+        }}))
+        .unwrap();
+        assert_eq!(
+            anon.locked_qualities(),
+            vec![AudioQuality::HiRes, AudioQuality::Dolby]
+        );
+        assert!(playurl(true).locked_qualities().is_empty());
+        assert!(playurl(false).locked_qualities().is_empty());
     }
 
     #[test]

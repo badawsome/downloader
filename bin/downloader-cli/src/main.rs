@@ -365,9 +365,13 @@ async fn download(
 async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::Result<i32> {
     let download_opts = opts.download_options()?;
     println!("{}", account_line(service).await);
+    let logged_in = service.client().is_logged_in();
     let jobs = resolve(service, &inputs, &opts).await?;
     let results: Vec<_> = stream::iter(jobs.iter())
-        .map(|job| async move { (job, service.streams(&job.track).await) })
+        .map(|job| async move {
+            let t = &job.track;
+            (job, service.client().playurl(&t.video_id(), t.cid).await)
+        })
         .buffered(4)
         .collect()
         .await;
@@ -387,7 +391,8 @@ async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::
             t.url()
         );
         match streams {
-            Ok(streams) => {
+            Ok(play) => {
+                let streams = play.audio_streams();
                 let chosen = download_opts.audio.select(&streams).map(|s| s.id);
                 for s in &streams {
                     println!(
@@ -396,6 +401,19 @@ async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::
                         s.label(),
                         s.bandwidth / 1000,
                         s.codecs
+                    );
+                }
+                for q in play.locked_qualities() {
+                    println!(
+                        "    {} {:<42} {}",
+                        style("×").yellow(),
+                        q.label(),
+                        style(if logged_in {
+                            "offered for this video, not for this account (VIP needed)"
+                        } else {
+                            "offered for this video — run `dc login` (VIP needed)"
+                        })
+                        .dim()
                     );
                 }
             }

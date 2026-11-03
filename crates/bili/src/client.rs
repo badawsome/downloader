@@ -60,6 +60,9 @@ pub struct Client {
     cookies: RwLock<CookieJar>,
     wbi_key: Mutex<Option<(String, Instant)>>,
     buvid: OnceCell<()>,
+    /// Cleared once `nav` reports that the session cookie is not logged in
+    /// (expired), so requests fall back to anonymous behaviour.
+    session_valid: std::sync::atomic::AtomicBool,
     api_slots: Semaphore,
 }
 
@@ -94,6 +97,7 @@ impl Client {
             wbi_key: Mutex::new(None),
             buvid: OnceCell::new(),
             api_slots: Semaphore::new(4),
+            session_valid: std::sync::atomic::AtomicBool::new(true),
         })
     }
 
@@ -112,6 +116,14 @@ impl Client {
 
     pub fn cookies(&self) -> CookieJar {
         self.cookies.read().unwrap().clone()
+    }
+
+    /// Has a session cookie that has not been found to be expired.
+    pub fn is_logged_in(&self) -> bool {
+        self.has_session()
+            && self
+                .session_valid
+                .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn has_session(&self) -> bool {
@@ -308,6 +320,10 @@ impl Client {
         match env.code {
             0 | -101 => {
                 let nav: NavInfo = serde_json::from_value(env.data)?;
+                if self.has_session() {
+                    self.session_valid
+                        .store(nav.is_login, std::sync::atomic::Ordering::Relaxed);
+                }
                 // Reuse the WBI keys so signing needs no second request.
                 if let Some(img) = &nav.wbi_img {
                     let key = wbi::mixin_key(
@@ -395,6 +411,8 @@ impl Client {
                     ));
                 }
                 *self.cookies.write().unwrap() = jar.clone();
+                self.session_valid
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
                 QrStatus::Success(jar)
             }
             86101 => QrStatus::Waiting,
@@ -434,7 +452,7 @@ impl Client {
             ("fnval", FNVAL_ALL.to_string()),
             ("fourk", "1".into()),
         ]);
-        if !self.has_session() {
+        if !self.is_logged_in() {
             // lets anonymous users get the higher "trial" qualities
             params.push(("try_look".into(), "1".into()));
         }
