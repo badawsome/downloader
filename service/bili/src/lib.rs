@@ -167,10 +167,21 @@ impl Service {
         inputs: &[String],
         opts: &ResolveOptions,
     ) -> (Vec<Track>, Vec<String>) {
+        self.resolve_with_progress(inputs, opts, |_, _| {}).await
+    }
+
+    /// [`Self::resolve`], calling `progress(index, input)` before each input.
+    pub async fn resolve_with_progress(
+        &self,
+        inputs: &[String],
+        opts: &ResolveOptions,
+        progress: impl Fn(usize, &str),
+    ) -> (Vec<Track>, Vec<String>) {
         let mut tracks: Vec<Track> = Vec::new();
         let mut warnings = Vec::new();
         let mut seen = HashSet::new();
-        for raw in inputs {
+        for (i, raw) in inputs.iter().enumerate() {
+            progress(i, raw);
             let res = match input::parse_input(raw) {
                 Ok(i) => track::resolve_input(&self.client, &i, opts, &mut warnings).await,
                 Err(e) => Err(Error::Input(e)),
@@ -188,8 +199,20 @@ impl Service {
 
     /// Applies BGM titles, renders file names and makes them unique.
     pub async fn plan(&self, tracks: Vec<Track>, opts: &DownloadOptions) -> Vec<Job> {
+        self.plan_with_progress(tracks, opts, |_, _| {}).await
+    }
+
+    /// [`Self::plan`], calling `progress(done, total)` as titles are looked up.
+    pub async fn plan_with_progress(
+        &self,
+        tracks: Vec<Track>,
+        opts: &DownloadOptions,
+        progress: impl Fn(usize, usize),
+    ) -> Vec<Job> {
         let client = &self.client;
         let use_bgm = opts.use_bgm_title;
+        let count = tracks.len();
+        let mut done = 0;
         let tracks: Vec<Track> = stream::iter(tracks)
             .map(|mut t| async move {
                 if use_bgm && t.bgm_lookup {
@@ -200,6 +223,10 @@ impl Service {
                 t
             })
             .buffered(4)
+            .inspect(|_| {
+                done += 1;
+                progress(done, count);
+            })
             .collect()
             .await;
 

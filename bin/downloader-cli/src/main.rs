@@ -10,6 +10,7 @@ use anyhow::{bail, Context};
 use bili_service::bili::{AudioPreference, AudioQuality, QrStatus};
 use bili_service::{DownloadOptions, PageSelection, ResolveOptions, Service};
 use clap::{Args, Parser, Subcommand};
+use console::style;
 use futures_util::{stream, StreamExt};
 
 #[derive(Parser, Debug)]
@@ -277,7 +278,19 @@ async fn resolve(
     opts: &GetOpts,
 ) -> anyhow::Result<Vec<bili_service::Job>> {
     let download_opts = opts.download_options()?;
-    let (mut tracks, warnings) = service.resolve(inputs, &opts.resolve_options()).await;
+    let spinner = ui::phase_spinner("resolving");
+    let n = inputs.len();
+    let (mut tracks, warnings) = service
+        .resolve_with_progress(inputs, &opts.resolve_options(), |i, raw| {
+            let what = if n > 1 {
+                format!(" ({}/{n})", i + 1)
+            } else {
+                String::new()
+            };
+            spinner.set_message(format!("resolving{what} {raw}"));
+        })
+        .await;
+    spinner.finish_and_clear();
     if let Some(items) = &opts.items {
         tracks = tracks
             .into_iter()
@@ -287,12 +300,19 @@ async fn resolve(
             .collect();
     }
     for w in &warnings {
-        eprintln!("warning: {w}");
+        eprintln!("{} {w}", style("warning:").yellow().bold().for_stderr());
     }
     if tracks.is_empty() {
         bail!("nothing to download");
     }
-    Ok(service.plan(tracks, &download_opts).await)
+    let spinner = ui::phase_spinner(format!("planning {} tracks", tracks.len()));
+    let jobs = service
+        .plan_with_progress(tracks, &download_opts, |done, total| {
+            spinner.set_message(format!("looking up song titles {done}/{total}"));
+        })
+        .await;
+    spinner.finish_and_clear();
+    Ok(jobs)
 }
 
 async fn download(
@@ -302,32 +322,41 @@ async fn download(
     verbose: bool,
 ) -> anyhow::Result<i32> {
     let download_opts = opts.download_options()?;
-    eprintln!("{}", account_line(service).await);
+    eprintln!("{}", style(account_line(service).await).dim().for_stderr());
     let jobs = resolve(service, &inputs, &opts).await?;
     std::fs::create_dir_all(&download_opts.out_dir)
         .with_context(|| format!("cannot create {}", download_opts.out_dir.display()))?;
 
-    let reporter = Arc::new(ui::TerminalReporter::new(jobs.len(), verbose));
+    let longest_name = jobs
+        .iter()
+        .map(|j| console::measure_text_width(&j.display_name()))
+        .max()
+        .unwrap_or(0);
+    let reporter = Arc::new(ui::TerminalReporter::new(
+        jobs.len(),
+        longest_name,
+        &download_opts.out_dir,
+        verbose,
+    ));
     let summary = tokio::select! {
         s = service.run(jobs, &download_opts, reporter.clone()) => s,
         _ = tokio::signal::ctrl_c() => {
             reporter.finish();
-            eprintln!("\ninterrupted — finished chunks are saved, run the same command again to resume");
+            eprintln!(
+                "{} finished chunks are saved, run the same command again to resume",
+                style("interrupted —").yellow().bold().for_stderr()
+            );
             return Ok(130);
         }
     };
     reporter.finish();
-    eprintln!(
-        "done: {} downloaded, {} skipped, {} failed",
-        summary.downloaded,
-        summary.skipped,
-        summary.failed.len()
-    );
+    eprintln!("{}", reporter.summary_line(&summary));
     for (job, err) in &summary.failed {
         eprintln!(
-            "  failed: {} ({}): {err}",
+            "  {} {} {}: {err}",
+            style("✘").red().for_stderr(),
             job.display_name(),
-            job.track.url()
+            style(job.track.url()).dim().for_stderr()
         );
     }
     Ok(if summary.failed.is_empty() { 0 } else { 1 })

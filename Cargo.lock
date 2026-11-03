@@ -283,6 +283,7 @@ dependencies = [
  "anyhow",
  "bili-service",
  "clap",
+ "console",
  "dirs",
  "futures-util",
  "indicatif",
