@@ -253,9 +253,12 @@ impl Downloader {
                             .and_then(|v| v.to_str().ok())
                             .and_then(parse_content_range)
                             .and_then(|(_, total)| total);
+                        let fallback = resp.content_length();
+                        // Drain the 1 byte body so the connection is reused.
+                        let _ = tokio::time::timeout(self.opts.idle_timeout, resp.bytes()).await;
                         Ok(Probe {
                             ranges: total.is_some(),
-                            total: total.or(resp.content_length()),
+                            total: total.or(fallback),
                         })
                     }
                     StatusCode::OK => Ok(Probe {

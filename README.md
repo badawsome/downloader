@@ -33,8 +33,12 @@ dc get BV1Vh4y1v7qn
 # 视频链接 / 短链 / 多 P 中的某一 P
 dc get "https://www.bilibili.com/video/BV1Vh4y1v7qn/?p=2" https://b23.tv/xxxx
 
-# 下载视频所属的整个合集
+# 下载视频所属的整个合集（--items 只取列表中的部分曲目）
 dc get BV13m421J7fM --season -o ~/Music
+dc get BV13m421J7fM --season --items 1-10,97
+
+# 多 P 视频只下部分分 P
+dc get BV17xxLeaEQ4 --pages 1-3,9
 
 # 收藏夹、合集页面
 dc get "https://space.bilibili.com/123/favlist?fid=456"
@@ -69,7 +73,8 @@ dc logout
 可用变量：`{title} {artist} {album} {collection} {video_title} {part} {index} {total} {page} {bvid} {aid} {cid} {date} {year}`。
 扩展名按编码自动决定（`.m4a` / `.flac`）。
 
-默认会用 B 站识别出的 BGM 曲名作为标题（翻唱视频常常更干净），不需要时加 `--no-bgm-title`。
+默认会用 B 站识别出的 BGM 曲名作为标题（翻唱视频常常更干净；会去掉 `发现《…》` 包装和 `(伴奏)` 等后缀），不需要时加 `--no-bgm-title`。
+多 P 视频的分 P 标题若自带与序号重复的编号（如 `001.周杰伦-爱在西元前`）会自动去掉。
 
 ### 并发与续传
 

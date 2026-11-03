@@ -86,6 +86,39 @@ fn clean(s: &str) -> String {
     s.trim().to_owned()
 }
 
+/// Removes numbering that duplicates the part index: `001.周杰伦-爱在西元前`,
+/// `P3 xxx`, `03、xxx` → the remaining title (when anything remains).
+fn strip_index_prefix(part: &str, page: u32) -> String {
+    let t = part.trim_start();
+    let rest = t
+        .strip_prefix('P')
+        .or_else(|| t.strip_prefix('p'))
+        .unwrap_or(t);
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() || digits.parse::<u32>().ok() != Some(page) {
+        return part.to_owned();
+    }
+    let after = &rest[digits.len()..];
+    // the number must be followed by a separator, not be part of the title
+    let Some(sep) = after.chars().next() else {
+        return part.to_owned();
+    };
+    if !matches!(
+        sep,
+        '.' | '、' | '-' | '_' | ' ' | ')' | '）' | ':' | '：' | '．' | '|'
+    ) {
+        return part.to_owned();
+    }
+    let stripped = after
+        .trim_start_matches(['.', '、', '-', '_', ' ', ')', '）', ':', '：', '．', '|'])
+        .trim();
+    if stripped.is_empty() {
+        part.to_owned()
+    } else {
+        stripped.to_owned()
+    }
+}
+
 fn season_position(season: &UgcSeason, bvid: &str) -> Option<(u32, u32)> {
     let total = season.episodes().count() as u32;
     season
@@ -128,7 +161,7 @@ pub(crate) fn tracks_from_view(
         .into_iter()
         .map(|(n, p)| {
             let (kind, title, album, index, total) = if multi {
-                let part = clean(&p.part);
+                let part = strip_index_prefix(&clean(&p.part), n);
                 let title = if part.is_empty() {
                     format!("P{n}")
                 } else {
@@ -181,7 +214,7 @@ pub(crate) fn tracks_from_view(
                 pubdate: view.pubdate,
                 cover_url: view.pic.clone(),
                 description: view.desc.clone(),
-                genre: view.tname.clone(),
+                genre: view.category(),
                 collection: collection.map(clean).unwrap_or_default(),
                 bgm_lookup: !multi,
             }
@@ -221,7 +254,7 @@ pub(crate) fn tracks_from_season(view: &VideoView, season: &UgcSeason) -> Vec<Tr
                     arc.pic.clone()
                 },
                 description: arc.desc,
-                genre: view.tname.clone(),
+                genre: view.category(),
                 collection: clean(&season.title),
                 bgm_lookup: true,
             }
@@ -357,6 +390,27 @@ mod tests {
         assert_eq!(t.iter().map(|t| t.cid).collect::<Vec<_>>(), vec![102, 103]);
         let t = tracks_from_view(&view(3, false), Some(1), &opts, None);
         assert_eq!(t.iter().map(|t| t.cid).collect::<Vec<_>>(), vec![101]);
+    }
+
+    #[test]
+    fn part_numbering_is_stripped() {
+        assert_eq!(
+            strip_index_prefix("001.周杰伦-爱在西元前", 1),
+            "周杰伦-爱在西元前"
+        );
+        assert_eq!(strip_index_prefix("P3 晴天", 3), "晴天");
+        assert_eq!(strip_index_prefix("03、晴天", 3), "晴天");
+        assert_eq!(strip_index_prefix("12.晴天", 3), "12.晴天");
+        assert_eq!(
+            strip_index_prefix("1987我不知道会遇见你", 1),
+            "1987我不知道会遇见你"
+        );
+        assert_eq!(
+            strip_index_prefix("2002年的第一场雪", 2),
+            "2002年的第一场雪"
+        );
+        assert_eq!(strip_index_prefix("1", 1), "1");
+        assert_eq!(strip_index_prefix("Part 1", 1), "Part 1");
     }
 
     #[test]

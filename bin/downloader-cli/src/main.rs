@@ -96,6 +96,10 @@ struct GetOpts {
     /// Pages of multi-part videos, e.g. `1,3-5` (default: all)
     #[arg(short, long)]
     pages: Option<PageSelection>,
+    /// Only these entries of the resolved track list (e.g. `1-10,15` of a
+    /// collection or favorites folder)
+    #[arg(long)]
+    items: Option<PageSelection>,
     /// Tracks downloaded in parallel
     #[arg(short, long, default_value_t = 3)]
     jobs: usize,
@@ -273,7 +277,15 @@ async fn resolve(
     opts: &GetOpts,
 ) -> anyhow::Result<Vec<bili_service::Job>> {
     let download_opts = opts.download_options()?;
-    let (tracks, warnings) = service.resolve(inputs, &opts.resolve_options()).await;
+    let (mut tracks, warnings) = service.resolve(inputs, &opts.resolve_options()).await;
+    if let Some(items) = &opts.items {
+        tracks = tracks
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| items.contains(*i as u32 + 1))
+            .map(|(_, t)| t)
+            .collect();
+    }
     for w in &warnings {
         eprintln!("warning: {w}");
     }

@@ -194,7 +194,7 @@ impl Service {
             .map(|mut t| async move {
                 if use_bgm && t.bgm_lookup {
                     if let Ok(Some(bgm)) = client.bgm_info(&t.video_id(), t.cid).await {
-                        t.title = bgm.music_title.trim().to_owned();
+                        t.title = bgm.song_title();
                     }
                 }
                 t
@@ -313,30 +313,35 @@ impl Service {
             }
         }
 
-        // 1. pick the stream
-        let streams = self.streams(track).await?;
-        let stream = opts.audio.select(&streams).ok_or(Error::NoAudio)?.clone();
-        reporter.status(job, &stream.label());
-
-        // 2. download (resumable) + cover, concurrently
-        let part = ext_path(&job.stem, "part");
-        let request = DownloadRequest {
-            urls: stream.urls.clone(),
-            dest: part.clone(),
-            resume_key: format!(
-                "{}:{}:{}:{:?}",
-                track.bvid, track.cid, stream.id, stream.source
-            ),
-            headers: Client::browser_headers(),
-        };
+        // The cover is fetched while the stream is selected and downloaded.
         let cover = async {
             if !opts.embed_cover || track.cover_url.is_empty() {
                 return None;
             }
             self.client.fetch_bytes(&track.cover_url).await.ok()
         };
-        let (report, cover) = tokio::join!(downloader.download(&request, progress), cover);
-        let report = report?;
+        let part = ext_path(&job.stem, "part");
+        let audio = async {
+            // 1. pick the stream
+            let streams = self.streams(track).await?;
+            let stream = opts.audio.select(&streams).ok_or(Error::NoAudio)?.clone();
+            reporter.status(job, &stream.label());
+
+            // 2. download (resumable)
+            let request = DownloadRequest {
+                urls: stream.urls.clone(),
+                dest: part.clone(),
+                resume_key: format!(
+                    "{}:{}:{}:{:?}",
+                    track.bvid, track.cid, stream.id, stream.source
+                ),
+                headers: Client::browser_headers(),
+            };
+            let report = downloader.download(&request, progress).await?;
+            Ok::<_, Error>((stream, report))
+        };
+        let (audio, cover) = tokio::join!(audio, cover);
+        let (stream, report) = audio?;
 
         // 3. remux to audio only + tags
         reporter.status(job, "writing tags");

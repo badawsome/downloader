@@ -53,13 +53,45 @@ pub struct VideoView {
     pub pubdate: i64,
     #[serde(default)]
     pub duration: u64,
-    /// Category name, e.g. `翻唱`.
+    /// Category name, e.g. `翻唱` (often empty nowadays, see [`Self::category`]).
     #[serde(default)]
     pub tname: String,
+    #[serde(default)]
+    pub tname_v2: String,
+    /// Category id.
+    #[serde(default)]
+    pub tid: u32,
     #[serde(default, deserialize_with = "null_default")]
     pub pages: Vec<Page>,
     #[serde(default)]
     pub ugc_season: Option<UgcSeason>,
+}
+
+impl VideoView {
+    /// Category name used as genre: `tname`, `tname_v2`, or derived from the
+    /// (music) category id.
+    pub fn category(&self) -> String {
+        let name = [self.tname.trim(), self.tname_v2.trim()]
+            .into_iter()
+            .find(|s| !s.is_empty());
+        if let Some(name) = name {
+            return name.to_owned();
+        }
+        match self.tid {
+            28 => "原创音乐",
+            29 => "音乐现场",
+            30 => "VOCALOID·UTAU",
+            31 => "翻唱",
+            59 => "演奏",
+            130 => "音乐综合",
+            193 => "MV",
+            194 => "电音",
+            243 => "乐评盘点",
+            244 => "音乐教学",
+            _ => "",
+        }
+        .to_owned()
+    }
 }
 
 /// A "合集" (UGC season) as embedded in the view response.
@@ -239,6 +271,62 @@ pub struct BgmInfo {
     pub jump_url: String,
 }
 
+impl BgmInfo {
+    /// The song name. The API decorates it (`发现《一样的月光》`), so the
+    /// text inside the first `《》` is preferred.
+    pub fn song_title(&self) -> String {
+        let t = self.music_title.trim();
+        let name = t
+            .split_once('《')
+            .and_then(|(_, rest)| rest.split_once('》'))
+            .map(|(inner, _)| inner.trim())
+            .filter(|inner| !inner.is_empty())
+            .unwrap_or_else(|| t.strip_prefix("发现").unwrap_or(t).trim());
+        strip_backing_track_marker(name)
+    }
+}
+
+/// Covers are often matched against the karaoke backing track, e.g.
+/// `Breeze (伴奏)`; the song itself is what the video contains.
+fn strip_backing_track_marker(name: &str) -> String {
+    const MARKERS: [&str; 6] = [
+        "伴奏",
+        "inst",
+        "instrumental",
+        "off vocal",
+        "karaoke",
+        "纯伴",
+    ];
+    let mut s = name.trim().to_owned();
+    while let Some(close) = s
+        .chars()
+        .last()
+        .filter(|c| matches!(c, ')' | '）' | ']' | '】'))
+    {
+        let open = match close {
+            ')' => ['(', '（'],
+            '）' => ['（', '('],
+            ']' => ['[', '['],
+            _ => ['【', '【'],
+        };
+        let Some(start) = s.rfind(open) else { break };
+        let inner = s[start..s.len() - close.len_utf8()].to_lowercase();
+        if start == 0 || !MARKERS.iter().any(|m| inner.contains(m)) {
+            break;
+        }
+        s.truncate(start);
+        s = s.trim_end().to_owned();
+    }
+    for suffix in [" - 伴奏", "-伴奏", "伴奏版", " 伴奏"] {
+        if let Some(rest) = s.strip_suffix(suffix) {
+            if !rest.trim().is_empty() {
+                s = rest.trim_end().to_owned();
+            }
+        }
+    }
+    s
+}
+
 /// `GET /x/web-interface/nav` (also returned when not logged in).
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct NavInfo {
@@ -324,6 +412,28 @@ mod tests {
             dash.flac.unwrap().audio.unwrap().urls(),
             vec!["https://a/flac"]
         );
+    }
+
+    #[test]
+    fn bgm_song_title() {
+        let bgm = |t: &str| BgmInfo {
+            music_id: String::new(),
+            music_title: t.into(),
+            jump_url: String::new(),
+        };
+        assert_eq!(bgm("发现《一样的月光》").song_title(), "一样的月光");
+        assert_eq!(
+            bgm(" 发现《The Truth That You Leave》 ").song_title(),
+            "The Truth That You Leave"
+        );
+        assert_eq!(bgm("一样的月光").song_title(), "一样的月光");
+        assert_eq!(bgm("发现 Song").song_title(), "Song");
+        assert_eq!(bgm("发现《Breeze (伴奏)》").song_title(), "Breeze");
+        assert_eq!(bgm("晴天（伴奏）").song_title(), "晴天");
+        assert_eq!(bgm("Lemon (Instrumental)").song_title(), "Lemon");
+        assert_eq!(bgm("夜曲 伴奏版").song_title(), "夜曲");
+        assert_eq!(bgm("Song (Live)").song_title(), "Song (Live)");
+        assert_eq!(bgm("(伴奏)").song_title(), "(伴奏)");
     }
 
     #[test]

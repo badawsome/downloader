@@ -306,7 +306,20 @@ impl Client {
             .envelope(&format!("{}/x/web-interface/nav", self.api), &[], false)
             .await?;
         match env.code {
-            0 | -101 => Ok(serde_json::from_value(env.data)?),
+            0 | -101 => {
+                let nav: NavInfo = serde_json::from_value(env.data)?;
+                // Reuse the WBI keys so signing needs no second request.
+                if let Some(img) = &nav.wbi_img {
+                    let key = wbi::mixin_key(
+                        wbi::key_from_url(&img.img_url),
+                        wbi::key_from_url(&img.sub_url),
+                    );
+                    if key.len() == 32 {
+                        *self.wbi_key.lock().await = Some((key, Instant::now()));
+                    }
+                }
+                Ok(nav)
+            }
             code => Err(Error::Api {
                 code,
                 message: env.message,
@@ -454,7 +467,7 @@ impl Client {
                 true,
             )
             .await?;
-        Ok(p.bgm_info.filter(|b| !b.music_title.trim().is_empty()))
+        Ok(p.bgm_info.filter(|b| !b.song_title().is_empty()))
     }
 
     // ------------------------------------------------------------ lists
@@ -505,7 +518,17 @@ impl Client {
                     ]),
                     false,
                 )
-                .await?;
+                .await
+                .map_err(|e| match e {
+                    // code 0 without data: unknown id or a private folder
+                    Error::Unexpected(_) | Error::Api { code: -403, .. } => Error::Api {
+                        code: -404,
+                        message: format!(
+                            "favorites folder {media_id} not found or private (private folders need the owner's login)"
+                        ),
+                    },
+                    e => e,
+                })?;
             list.title = page.info.title;
             list.owner = page.info.upper.name;
             for m in page.medias.unwrap_or_default() {
@@ -659,7 +682,7 @@ mod tests {
         let streams = play.audio_streams();
         assert!(!streams.is_empty());
         let bgm = c.bgm_info(&id, view.cid).await?;
-        assert_eq!(bgm.map(|b| b.music_title).as_deref(), Some("一样的月光"));
+        assert_eq!(bgm.map(|b| b.song_title()).as_deref(), Some("一样的月光"));
         Ok(())
     }
 
