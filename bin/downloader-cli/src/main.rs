@@ -2,6 +2,7 @@ mod out;
 mod qr;
 mod search;
 mod session;
+mod tui;
 mod ui;
 
 use std::path::PathBuf;
@@ -48,10 +49,10 @@ enum Commands {
         #[command(flatten)]
         opts: GetOpts,
     },
-    /// Search videos and pick results to download (interactive in a terminal)
+    /// Search videos and pick results to download (full screen picker in a
+    /// terminal; `--plain` for a line based prompt)
     Search {
-        /// Search keywords
-        #[arg(required = true)]
+        /// Search keywords (optional in the full screen picker)
         keyword: Vec<String>,
         /// Result page (20 results per page)
         #[arg(long, default_value_t = 1)]
@@ -65,6 +66,10 @@ enum Commands {
         /// Download these results without asking, e.g. `1,3-5` or `all`
         #[arg(long)]
         pick: Option<String>,
+        /// Line based prompt instead of the full screen picker (for
+        /// terminals without full TUI support)
+        #[arg(long, env = "DC_PLAIN")]
+        plain: bool,
         #[command(flatten)]
         opts: GetOpts,
     },
@@ -215,6 +220,7 @@ async fn run(cli: Cli) -> anyhow::Result<i32> {
             order,
             music,
             pick,
+            plain,
             opts,
         } => {
             let keyword = keyword.join(" ");
@@ -223,7 +229,8 @@ async fn run(cli: Cli) -> anyhow::Result<i32> {
                 order,
                 music_only: music,
             };
-            let picked = search::browse(&service, &keyword, search_opts, pick.as_deref()).await?;
+            let picked =
+                search::browse(&service, &keyword, search_opts, pick.as_deref(), plain).await?;
             if picked.is_empty() {
                 return Ok(0);
             }

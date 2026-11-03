@@ -12,7 +12,7 @@ Feature:
 - resume: interrupted downloads continue from the last finished chunk (`.part.state`), also after Ctrl-C
 - inputs: video urls with `?p=`, b23.tv short links, collections (合集), favorites (收藏夹), multi-part videos (`--pages`)
 - `dc info` shows planned file names and available audio qualities
-- `dc search`: keyword search (music category, sort order, paging) with interactive or `--pick` selection to download
+- `dc search`: full screen picker (ratatui/crossterm; live keys, multi-select across pages, query editing, sort / music filter) with a line based `--plain` fallback and `--pick` for scripts
 - `--items` selects entries of a collection / favorites list (e.g. `1-10,97`)
 - BGM titles: unwrap `发现《…》`, drop backing-track markers such as `(伴奏)`
 - multi-part titles: drop numbering that duplicates the part index

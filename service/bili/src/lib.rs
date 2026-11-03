@@ -158,6 +158,11 @@ impl Service {
         &self.client
     }
 
+    /// A shared handle to the client, for use in spawned tasks.
+    pub fn shared_client(&self) -> Arc<Client> {
+        self.client.clone()
+    }
+
     /// Login / VIP state.
     pub async fn account(&self) -> Result<NavInfo> {
         Ok(self.client.nav().await?)

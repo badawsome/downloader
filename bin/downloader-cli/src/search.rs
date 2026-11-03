@@ -10,19 +10,21 @@ use console::{style, Alignment, Term};
 use crate::out::{self, cell};
 
 /// `5369393` → `536.9万`.
-fn fmt_count(n: u64) -> String {
+pub(crate) fn fmt_count(n: u64) -> String {
     let short = |v: f64, unit: &str| {
         let s = format!("{v:.1}");
         format!("{}{unit}", s.strip_suffix(".0").unwrap_or(&s))
     };
     match n {
         0..=9_999 => n.to_string(),
-        10_000..=99_999_999 => short(n as f64 / 1e4, "万"),
+        10_000..=9_999_999 => short(n as f64 / 1e4, "万"),
+        // keep it within 7 columns: 1768.5万 → 1768万
+        10_000_000..=99_999_999 => format!("{}万", n / 10_000),
         _ => short(n as f64 / 1e8, "亿"),
     }
 }
 
-fn fmt_secs(s: u64) -> String {
+pub(crate) fn fmt_secs(s: u64) -> String {
     if s >= 3600 {
         format!("{}:{:02}:{:02}", s / 3600, (s % 3600) / 60, s % 60)
     } else {
@@ -147,16 +149,38 @@ async fn read_line(prompt: String) -> std::io::Result<Option<String>> {
 }
 
 /// Shows search results and returns the BV ids chosen for download.
-/// `pick` selects non-interactively; otherwise the user is prompted when
-/// running in a terminal.
+///
+/// * `pick` selects non-interactively;
+/// * in a capable terminal a full screen picker is used ([`crate::tui`]);
+/// * `plain`, `TERM=dumb` or a terminal without raw mode / alternate screen
+///   support get a line based prompt (answers confirmed with Enter).
 pub async fn browse(
     service: &Service,
     keyword: &str,
     mut opts: SearchOptions,
     pick: Option<&str>,
+    plain: bool,
 ) -> anyhow::Result<Vec<String>> {
     let interactive =
         pick.is_none() && std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
+    let dumb = std::env::var("TERM").is_ok_and(|t| t == "dumb");
+    if interactive && !plain && !dumb {
+        if let Some(items) =
+            crate::tui::pick(service.shared_client(), keyword, opts.clone()).await?
+        {
+            if !items.is_empty() {
+                out::line(style(format!("Selected {}:", items.len())).bold());
+                for item in &items {
+                    out::line(format!("  {}  {}", style(&item.bvid).dim(), item.title));
+                }
+            }
+            return Ok(items.into_iter().map(|i| i.bvid).collect());
+        }
+        // the terminal could not host the full screen picker
+    }
+    if keyword.trim().is_empty() {
+        anyhow::bail!("give a search keyword");
+    }
     opts.page = opts.page.max(1);
     let mut page = service.client().search_videos(keyword, &opts).await?;
     loop {
@@ -244,6 +268,7 @@ mod tests {
         assert_eq!(fmt_count(5_369_393), "536.9万");
         assert_eq!(fmt_count(120_000), "12万");
         assert_eq!(fmt_count(230_000_000), "2.3亿");
+        assert_eq!(fmt_count(17_685_000), "1768万");
         assert_eq!(fmt_secs(238), "3:58");
         assert_eq!(fmt_secs(3723), "1:02:03");
         assert_eq!(
