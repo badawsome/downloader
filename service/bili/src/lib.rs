@@ -113,6 +113,9 @@ pub enum Outcome {
         codec: String,
         bytes: u64,
         resumed: u64,
+        /// Better tiers the video offers but the server withheld from this
+        /// session (e.g. Hi-Res for non-VIP accounts), best first.
+        withheld: Vec<bili::AudioQuality>,
     },
     /// The output already existed.
     Skipped { path: PathBuf },
@@ -350,8 +353,20 @@ impl Service {
         let part = ext_path(&job.stem, "part");
         let audio = async {
             // 1. pick the stream
-            let streams = self.streams(track).await?;
+            let play = self.client.playurl(&track.video_id(), track.cid).await?;
+            let streams = play.audio_streams();
             let stream = opts.audio.select(&streams).ok_or(Error::NoAudio)?.clone();
+            // only report tiers the user's preference would have accepted
+            let withheld: Vec<bili::AudioQuality> = play
+                .locked_qualities()
+                .into_iter()
+                .filter(|q| {
+                    stream.quality.is_none_or(|got| *q > got)
+                        && opts.audio.max_quality.is_none_or(|max| *q <= max)
+                        && (opts.audio.allow_dolby || *q != bili::AudioQuality::Dolby)
+                        && (opts.audio.allow_hires || *q != bili::AudioQuality::HiRes)
+                })
+                .collect();
             reporter.status(job, &stream.label());
 
             // 2. download (resumable)
@@ -365,10 +380,10 @@ impl Service {
                 headers: Client::browser_headers(),
             };
             let report = downloader.download(&request, progress).await?;
-            Ok::<_, Error>((stream, report))
+            Ok::<_, Error>((stream, report, withheld))
         };
         let (audio, cover) = tokio::join!(audio, cover);
-        let (stream, report) = audio?;
+        let (stream, report, withheld) = audio?;
 
         // 3. remux to audio only + tags
         reporter.status(job, "writing tags");
@@ -404,6 +419,7 @@ impl Service {
             codec: extracted.codec.to_string(),
             bytes: report.total,
             resumed: report.resumed,
+            withheld,
         })
     }
 }

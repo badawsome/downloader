@@ -209,7 +209,7 @@ async fn account_line(service: &Service) -> String {
             if nav.is_vip() {
                 "Hi-Res / Dolby Atmos"
             } else {
-                "192K AAC (Hi-Res / Dolby need VIP)"
+                "192K AAC (Hi-Res / Dolby are usually 大会员 only)"
             }
         ),
         Ok(_) if service.client().has_session() => {
@@ -409,9 +409,9 @@ async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::
                         style("×").yellow(),
                         q.label(),
                         style(if logged_in {
-                            "offered for this video, not for this account (VIP needed)"
+                            "this video has it, but bilibili did not provide it to this account (usually 大会员 only)"
                         } else {
-                            "offered for this video — run `dc login` (VIP needed)"
+                            "this video has it; not provided without login — `dc login` (usually 大会员 only)"
                         })
                         .dim()
                     );

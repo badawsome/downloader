@@ -510,6 +510,7 @@ impl Reporter for TerminalReporter {
                 codec,
                 bytes,
                 resumed,
+                withheld,
             }) => {
                 inner.stats.written.fetch_add(*bytes, Ordering::Relaxed);
                 let mut details = vec![
@@ -520,8 +521,21 @@ impl Reporter for TerminalReporter {
                 if *resumed > 0 {
                     details.push(format!("resumed {}", HumanBytes(*resumed)));
                 }
+                // The download is fine; say why it is not the top tier.
+                let note = match withheld.first() {
+                    Some(q) => format!(
+                        "  {}",
+                        style(format!(
+                            "(best for this account; {} not provided to it)",
+                            q.label()
+                        ))
+                        .yellow()
+                        .for_stderr()
+                    ),
+                    None => String::new(),
+                };
                 format!(
-                    "{} {index} {}  {}",
+                    "{} {index} {}  {}{note}",
                     style("✔").green().for_stderr(),
                     inner.relative(path).display(),
                     style(details.join(" · ")).dim().for_stderr()
