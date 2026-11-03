@@ -109,7 +109,7 @@ impl Layout {
     }
 
     fn fit(text: &str, width: usize) -> String {
-        console::truncate_str(text, width, "…").into_owned()
+        crate::out::fit(text, width)
     }
 }
 

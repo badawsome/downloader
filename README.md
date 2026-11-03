@@ -14,6 +14,7 @@
 | 分片并行 | 单文件多连接按 Range 分片下载，`-j` 控制同时下载的曲目数，`--max-connections` 控制全局连接上限 |
 | 稳定性 | 分片级重试 + 指数退避、空闲超时、多镜像（backup_url）按健康度切换，PCDN/MCDN 节点自动后置 |
 | 断点续传 | 每完成一个分片即记录到 `<文件>.part.state`；中断（含 Ctrl-C）后重跑同一命令即可续传，即使 CDN 链接已重新签名 |
+| 搜索 | `dc search` 按关键词搜索视频（可限定音乐区、按播放/最新等排序），在结果表中选编号直接下载 |
 | 输入 | BV/av 号、视频链接（含 `?p=`）、`b23.tv` 短链、合集链接、收藏夹（`fav:<id>`、`ml<id>`、favlist 链接） |
 
 ## 安装
@@ -43,6 +44,10 @@ dc get BV17xxLeaEQ4 --pages 1-3,9
 # 收藏夹、合集页面
 dc get "https://space.bilibili.com/123/favlist?fid=456"
 dc get "https://space.bilibili.com/123/lists/789?type=season"
+
+# 搜索：列出结果后输入编号下载（1,3-5 / all），n / p 翻页；--music 只搜音乐区
+dc search 周杰伦 晴天 --music
+dc search 一样的月光 --order plays --pick 1-3 -o ~/Music   # 不交互，直接下载
 
 # 只看会下载什么、有哪些音质（* 为将被选中的）
 dc info BV1Vh4y1v7qn

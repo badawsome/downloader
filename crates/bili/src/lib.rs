@@ -12,6 +12,7 @@ mod cookie;
 mod error;
 mod id;
 mod models;
+mod search;
 pub mod wbi;
 
 pub use audio::{AudioPreference, AudioQuality, AudioStream, StreamSource};
@@ -20,3 +21,4 @@ pub use cookie::CookieJar;
 pub use error::{Error, Result};
 pub use id::VideoId;
 pub use models::*;
+pub use search::{SearchItem, SearchOptions, SearchOrder, SearchPage};

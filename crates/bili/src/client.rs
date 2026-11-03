@@ -626,6 +626,44 @@ impl Client {
         Ok(list)
     }
 
+    // ------------------------------------------------------------ search
+
+    /// Searches videos (20 results per page).
+    pub async fn search_videos(
+        &self,
+        keyword: &str,
+        opts: &crate::SearchOptions,
+    ) -> Result<crate::SearchPage> {
+        let mut params = Self::params(&[
+            ("search_type", "video".into()),
+            ("keyword", keyword.trim().to_owned()),
+            ("page", opts.page.max(1).to_string()),
+            ("order", opts.order.param().into()),
+        ]);
+        if opts.music_only {
+            params.push(("tids".into(), "3".into()));
+        }
+        // A fresh session is sometimes answered with a captcha voucher and
+        // no results; it clears up after a moment.
+        for attempt in 0..4u64 {
+            let raw: crate::search::RawSearch = self
+                .get_json(
+                    &format!("{}/x/web-interface/wbi/search/type", self.api),
+                    &params,
+                    true,
+                )
+                .await?;
+            if raw.v_voucher.is_none() || raw.result.as_ref().is_some_and(|r| !r.is_empty()) {
+                return Ok(raw.into_page());
+            }
+            tokio::time::sleep(Duration::from_millis(800 * (attempt + 1))).await;
+        }
+        Err(Error::RiskControl {
+            code: -352,
+            message: "search was answered with a captcha challenge; retry later or log in".into(),
+        })
+    }
+
     // ------------------------------------------------------------ helpers
 
     /// Follows a short link (`https://b23.tv/xxxx`) and returns the target.

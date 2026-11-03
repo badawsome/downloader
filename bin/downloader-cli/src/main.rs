@@ -1,4 +1,6 @@
+mod out;
 mod qr;
+mod search;
 mod session;
 mod ui;
 
@@ -43,6 +45,26 @@ enum Commands {
     Info {
         #[arg(required = true)]
         inputs: Vec<String>,
+        #[command(flatten)]
+        opts: GetOpts,
+    },
+    /// Search videos and pick results to download (interactive in a terminal)
+    Search {
+        /// Search keywords
+        #[arg(required = true)]
+        keyword: Vec<String>,
+        /// Result page (20 results per page)
+        #[arg(long, default_value_t = 1)]
+        page: u32,
+        /// Sort: relevance, plays, newest, danmaku, favorites
+        #[arg(long, default_value = "relevance")]
+        order: bili_service::bili::SearchOrder,
+        /// Only the music category (音乐区)
+        #[arg(short, long)]
+        music: bool,
+        /// Download these results without asking, e.g. `1,3-5` or `all`
+        #[arg(long)]
+        pick: Option<String>,
         #[command(flatten)]
         opts: GetOpts,
     },
@@ -187,6 +209,27 @@ async fn run(cli: Cli) -> anyhow::Result<i32> {
             download(&service, id, opts, cli.verbose).await
         }
         Commands::Info { inputs, opts } => info(&service, inputs, opts).await,
+        Commands::Search {
+            keyword,
+            page,
+            order,
+            music,
+            pick,
+            opts,
+        } => {
+            let keyword = keyword.join(" ");
+            let search_opts = bili_service::bili::SearchOptions {
+                page,
+                order,
+                music_only: music,
+            };
+            let picked = search::browse(&service, &keyword, search_opts, pick.as_deref()).await?;
+            if picked.is_empty() {
+                return Ok(0);
+            }
+            println!();
+            download(&service, picked, opts, cli.verbose).await
+        }
         Commands::Login => login(&service, cli.cookie.is_some()).await,
         Commands::Logout => {
             if session::remove()? {
@@ -364,7 +407,7 @@ async fn download(
 
 async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::Result<i32> {
     let download_opts = opts.download_options()?;
-    println!("{}", account_line(service).await);
+    out::line(account_line(service).await);
     let logged_in = service.client().is_logged_in();
     let jobs = resolve(service, &inputs, &opts).await?;
     let results: Vec<_> = stream::iter(jobs.iter())
@@ -377,7 +420,7 @@ async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::
         .await;
     for (job, streams) in results {
         let t = &job.track;
-        println!(
+        out::line(format!(
             "\n[{}/{}] {}\n    title: {} | artist: {} | album: {}{}\n    source: {}",
             job.index,
             job.total,
@@ -389,22 +432,22 @@ async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::
                 .map(|i| format!(" | track {i}/{}", t.total.unwrap_or(0)))
                 .unwrap_or_default(),
             t.url()
-        );
+        ));
         match streams {
             Ok(play) => {
                 let streams = play.audio_streams();
                 let chosen = download_opts.audio.select(&streams).map(|s| s.id);
                 for s in &streams {
-                    println!(
+                    out::line(format!(
                         "    {} {:<42} {:>5} kbps  {}",
                         if Some(s.id) == chosen { "*" } else { " " },
                         s.label(),
                         s.bandwidth / 1000,
                         s.codecs
-                    );
+                    ));
                 }
                 for q in play.locked_qualities() {
-                    println!(
+                    out::line(format!(
                         "    {} {:<42} {}",
                         style("×").yellow(),
                         q.label(),
@@ -414,10 +457,10 @@ async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::
                             "this video has it; not provided without login — `dc login` (usually 大会员 only)"
                         })
                         .dim()
-                    );
+                    ));
                 }
             }
-            Err(e) => println!("    cannot load streams: {e}"),
+            Err(e) => out::line(format!("    cannot load streams: {e}")),
         }
     }
     Ok(0)
