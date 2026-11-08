@@ -642,7 +642,7 @@ impl UrlPool {
     }
 
     fn reward(&self, idx: usize) {
-        let _ = self.failures[idx].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+        let _ = self.failures[idx].try_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
             Some(v.saturating_sub(1))
         });
     }
