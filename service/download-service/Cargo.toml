@@ -1,11 +1,11 @@
 [package]
-name = "bili-service"
+name = "download-service"
 version = "0.2.0"
 edition = "2021"
-description = "Resolve bilibili inputs into audio tracks and download them with metadata"
+description = "Resolve source inputs into audio tracks and download them with metadata"
 
 [dependencies]
-bili.workspace = true
+source-api.workspace = true
 media.workspace = true
 network-tools.workspace = true
 tokio.workspace = true

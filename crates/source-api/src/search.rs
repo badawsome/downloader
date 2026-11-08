@@ -100,7 +100,7 @@ pub(crate) struct RawSearch {
     pub num_results: u64,
     #[serde(default)]
     pub result: Option<Vec<RawItem>>,
-    /// Present (with no results) when bilibili wants a captcha.
+    /// Present (with no results) when the source requests a captcha.
     #[serde(default)]
     pub v_voucher: Option<String>,
 }
@@ -168,7 +168,7 @@ pub fn parse_duration(s: &str) -> u64 {
         .fold(0, |acc, v| acc * 60 + v)
 }
 
-/// Decodes the HTML entities bilibili uses in titles.
+/// Decodes the HTML entities the source uses in titles.
 pub fn decode_entities(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut rest = s;

@@ -19,9 +19,9 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering}
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use bili_service::network_tools::{self, ProgressSink};
-use bili_service::{Job, Outcome, Reporter, Summary};
 use console::{pad_str, style, Alignment, Term};
+use download_service::network_tools::{self, ProgressSink};
+use download_service::{Job, Outcome, Reporter, Summary};
 use indicatif::{HumanBytes, MultiProgress, ProgressBar, ProgressStyle};
 
 const TICK: Duration = Duration::from_millis(120);
@@ -489,7 +489,7 @@ impl Reporter for TerminalReporter {
         }
     }
 
-    fn finished(&self, job: &Job, result: &bili_service::Result<Outcome>) {
+    fn finished(&self, job: &Job, result: &download_service::Result<Outcome>) {
         let inner = &self.inner;
         if let Some(t) = inner.tracks.lock().unwrap().remove(&job.index) {
             t.bar.finish_and_clear();

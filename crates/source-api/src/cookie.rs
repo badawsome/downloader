@@ -1,6 +1,8 @@
-//! A tiny cookie jar for bilibili credentials (`SESSDATA`, `bili_jct`, ...).
+//! A tiny cookie jar for source credentials.
 
 use std::collections::BTreeMap;
+
+use crate::protocol::COOKIE_DOMAIN;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CookieJar {
@@ -25,7 +27,7 @@ impl CookieJar {
             let fields: Vec<&str> = line.split('\t').collect();
             if fields.len() == 7 {
                 // domain, include subdomains, path, secure, expiry, name, value
-                if fields[0].contains("bilibili.com") {
+                if fields[0].contains(COOKIE_DOMAIN) {
                     jar.set(fields[5], fields[6]);
                 }
                 continue;
@@ -97,26 +99,26 @@ mod tests {
 
     #[test]
     fn parse_variants() {
-        let jar = CookieJar::parse("SESSDATA=abc%2C123; bili_jct=xyz ;buvid3=q");
+        let jar = CookieJar::parse("SESSDATA=abc%2C123; csrf_token=xyz ;buvid3=q");
         assert_eq!(jar.get("SESSDATA"), Some("abc%2C123"));
-        assert_eq!(jar.get("bili_jct"), Some("xyz"));
+        assert_eq!(jar.get("csrf_token"), Some("xyz"));
         assert!(jar.has_session());
         assert_eq!(
             jar.header_value(),
-            "SESSDATA=abc%2C123; bili_jct=xyz; buvid3=q"
+            "SESSDATA=abc%2C123; buvid3=q; csrf_token=xyz"
         );
 
         let bare = CookieJar::parse("  rawsessdata ");
         assert_eq!(bare.get("SESSDATA"), Some("rawsessdata"));
 
         let netscape = CookieJar::parse(
-            "# Netscape HTTP Cookie File\n.bilibili.com\tTRUE\t/\tTRUE\t0\tSESSDATA\tv1\n.example.com\tTRUE\t/\tFALSE\t0\tx\ty\n",
+            &format!("# Netscape HTTP Cookie File\n.{COOKIE_DOMAIN}\tTRUE\t/\tTRUE\t0\tSESSDATA\tv1\n.example.com\tTRUE\t/\tFALSE\t0\tx\ty\n"),
         );
         assert_eq!(netscape.get("SESSDATA"), Some("v1"));
         assert!(!netscape.contains("x"));
 
         let mut jar = CookieJar::new();
-        jar.add_set_cookie("SESSDATA=s; Path=/; Domain=bilibili.com; HttpOnly");
+        jar.add_set_cookie("SESSDATA=s; Path=/; Domain=example.com; HttpOnly");
         assert_eq!(jar.get("SESSDATA"), Some("s"));
         assert!(!CookieJar::parse("").has_session());
     }

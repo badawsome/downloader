@@ -147,7 +147,7 @@ fn sample_meta() -> Metadata {
         album_artist: Some("UP主".into()),
         date: Some("2024-05-01".into()),
         genre: Some("翻唱".into()),
-        comment: Some("https://www.bilibili.com/video/BV1xx411c7mD".into()),
+        comment: Some("https://www.example.com/video/BV1xx411c7mD".into()),
         description: Some("desc".into()),
         track: Some((2, Some(12))),
         cover: Some(Picture::new(vec![0xFF, 0xD8, 0xFF, 0xE0, 0, 2, 0xFF, 0xD9])),

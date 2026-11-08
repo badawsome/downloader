@@ -152,7 +152,7 @@ fn variable(key: &str, t: &Track) -> Option<String> {
 }
 
 /// Formats a unix timestamp as `YYYY-MM-DD` in China Standard Time (UTC+8),
-/// the time zone bilibili publishes in.
+/// the time zone used by the source.
 pub fn format_date(unix: i64) -> Option<String> {
     if unix <= 0 {
         return None;

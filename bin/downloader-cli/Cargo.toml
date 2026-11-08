@@ -2,10 +2,10 @@
 name = "dc"
 version = "0.2.0"
 edition = "2021"
-description = "bilibili audio downloader: best quality audio with metadata, resumable parallel downloads"
+description = "Audio downloader: best quality audio with metadata, resumable parallel downloads"
 
 [dependencies]
-bili-service.workspace = true
+download-service.workspace = true
 clap.workspace = true
 tokio.workspace = true
 anyhow.workspace = true

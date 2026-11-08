@@ -8,11 +8,11 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("unexpected response: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("bilibili api error {code}: {message}")]
+    #[error("source API error {code}: {message}")]
     Api { code: i64, message: String },
     #[error("login required (code -101); run `dc login` first")]
     NotLoggedIn,
-    #[error("request blocked by bilibili risk control ({code}: {message}); retry later or log in")]
+    #[error("request blocked by source risk control ({code}: {message}); retry later or log in")]
     RiskControl { code: i64, message: String },
     #[error("unexpected response: {0}")]
     Unexpected(String),

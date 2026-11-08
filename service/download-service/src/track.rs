@@ -1,7 +1,8 @@
 //! Turns inputs into a flat list of audio tracks with their metadata.
 
-use bili::{Client, Episode, UgcSeason, VideoId, VideoView};
 use futures_util::{stream, StreamExt};
+use source_api::protocol::REFERER;
+use source_api::{Client, Episode, UgcSeason, VideoId, VideoView};
 
 use crate::input::{Input, PageSelection};
 use crate::{Error, Result};
@@ -49,7 +50,7 @@ pub struct Track {
     pub pubdate: i64,
     pub cover_url: String,
     pub description: String,
-    /// bilibili category, e.g. `翻唱`.
+    /// Source category, e.g. `翻唱`.
     pub genre: String,
     /// Name of the season / favorites folder the track came from.
     pub collection: String,
@@ -64,12 +65,9 @@ impl Track {
 
     pub fn url(&self) -> String {
         if self.page > 1 {
-            format!(
-                "https://www.bilibili.com/video/{}/?p={}",
-                self.bvid, self.page
-            )
+            format!("{REFERER}video/{}/?p={}", self.bvid, self.page)
         } else {
-            format!("https://www.bilibili.com/video/{}/", self.bvid)
+            format!("{REFERER}video/{}/", self.bvid)
         }
     }
 }
@@ -136,7 +134,7 @@ pub(crate) fn tracks_from_view(
 ) -> Vec<Track> {
     let mut pages = view.pages.clone();
     if pages.is_empty() {
-        pages.push(bili::Page {
+        pages.push(source_api::Page {
             cid: view.cid,
             page: 1,
             part: view.title.clone(),
@@ -350,7 +348,7 @@ mod tests {
             .map(|i| serde_json::json!({"cid": 100 + i, "page": i, "part": format!("part {i}")}))
             .collect();
         let mut v = serde_json::json!({
-            "aid": 1, "bvid": "BV1xx411c7mD", "cid": 101, "title": " 视频 ", "pic": "http://i0.hdslb.com/a.jpg",
+            "aid": 1, "bvid": "BV1xx411c7mD", "cid": 101, "title": " 视频 ", "pic": "http://images.example.com/a.jpg",
             "owner": {"mid": 9, "name": "UP"}, "pubdate": 1700000000, "tname": "翻唱", "pages": pages,
         });
         if season {

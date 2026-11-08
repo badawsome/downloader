@@ -72,9 +72,11 @@ mod tests {
 
     #[test]
     fn reference_vector() {
-        // from bilibili-API-collect's WBI documentation
-        let img = key_from_url("https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png");
-        let sub = key_from_url("https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png");
+        // reference vector for request signing
+        let img =
+            key_from_url("https://i0.example.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png");
+        let sub =
+            key_from_url("https://i0.example.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png");
         let key = mixin_key(img, sub);
         assert_eq!(key, "ea1db124af3c7062474693fa704f4ff8");
         let params = vec![

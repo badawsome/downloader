@@ -10,16 +10,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{bail, Context};
-use bili_service::bili::{AudioPreference, AudioQuality, QrStatus};
-use bili_service::{DownloadOptions, PageSelection, ResolveOptions, Service};
 use clap::{Args, Parser, Subcommand};
 use console::style;
+use download_service::source_api::{AudioPreference, AudioQuality, QrStatus};
+use download_service::{DownloadOptions, PageSelection, ResolveOptions, Service};
 use futures_util::{stream, StreamExt};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    /// Cookie string (`SESSDATA=...; bili_jct=...`) instead of the saved login
+    /// Cookie string (`SESSDATA=...`) instead of the saved login
     #[arg(long, global = true, env = "DC_COOKIE", hide_env_values = true)]
     cookie: Option<String>,
     /// Read cookies from a file (cookie header or Netscape cookies.txt)
@@ -34,7 +34,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Download audio. Accepts BV/av ids, video urls, b23.tv short links,
+    /// Download audio. Accepts BV/av ids, video urls, short links,
     /// favorites (`fav:<id>`, `ml<id>`, favlist urls) and collection urls
     Get {
         #[arg(required = true)]
@@ -59,7 +59,7 @@ enum Commands {
         page: u32,
         /// Sort: relevance, plays, newest, danmaku, favorites
         #[arg(long, default_value = "relevance")]
-        order: bili_service::bili::SearchOrder,
+        order: download_service::source_api::SearchOrder,
         /// Only the music category (音乐区)
         #[arg(short, long)]
         music: bool,
@@ -73,20 +73,20 @@ enum Commands {
         #[command(flatten)]
         opts: GetOpts,
     },
-    /// Log in by scanning a QR code with the bilibili app (or save `--cookie`)
+    /// Log in by scanning a QR code with the source app (or save `--cookie`)
     Login,
     /// Forget the saved login
     Logout,
     /// Show the login / VIP state and the best reachable audio quality
     Status,
-    /// download bilibili with {av} num
+    /// Download audio using an av id
     #[command(hide = true)]
     AV {
         aid: Vec<u64>,
         #[command(flatten)]
         opts: GetOpts,
     },
-    /// download bilibili with {bv} num
+    /// Download audio using a BV id
     #[command(hide = true)]
     BV {
         bvid: Vec<String>,
@@ -224,7 +224,7 @@ async fn run(cli: Cli) -> anyhow::Result<i32> {
             opts,
         } => {
             let keyword = keyword.join(" ");
-            let search_opts = bili_service::bili::SearchOptions {
+            let search_opts = download_service::source_api::SearchOptions {
                 page,
                 order,
                 music_only: music,
@@ -292,7 +292,7 @@ async fn login(service: &Service, from_cookie: bool) -> anyhow::Result<i32> {
     }
 
     let code = service.client().qr_generate().await?;
-    println!("Scan with the bilibili app (我的 → 扫一扫):\n");
+    println!("Scan with the source app (我的 → 扫一扫):\n");
     match qr::render(&code.url) {
         Some(art) => println!("{art}"),
         None => println!("{}", code.url),
@@ -326,7 +326,7 @@ async fn resolve(
     service: &Service,
     inputs: &[String],
     opts: &GetOpts,
-) -> anyhow::Result<Vec<bili_service::Job>> {
+) -> anyhow::Result<Vec<download_service::Job>> {
     let download_opts = opts.download_options()?;
     let spinner = ui::phase_spinner("resolving");
     let n = inputs.len();
@@ -459,7 +459,7 @@ async fn info(service: &Service, inputs: Vec<String>, opts: GetOpts) -> anyhow::
                         style("×").yellow(),
                         q.label(),
                         style(if logged_in {
-                            "this video has it, but bilibili did not provide it to this account (usually 大会员 only)"
+                            "this video has it, but the source did not provide it to this account (usually 大会员 only)"
                         } else {
                             "this video has it; not provided without login — `dc login` (usually 大会员 only)"
                         })

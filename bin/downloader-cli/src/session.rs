@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use bili_service::bili::CookieJar;
+use download_service::source_api::CookieJar;
 
 /// `$DC_CONFIG_DIR` or the platform config dir (`~/.config/dc`,
 /// `%APPDATA%\dc`, `~/Library/Application Support/dc`).

@@ -1,9 +1,9 @@
 [package]
-name = "bili"
+name = "source-api"
 version = "0.2.0"
 edition = "2021"
 authors = ["badcw <badcw123@gmail.com>"]
-description = "a package to get bili api"
+description = "Audio source API client"
 license-file = "LICENSE"
 repository = "https://github.com/badawsome/downloader"
 

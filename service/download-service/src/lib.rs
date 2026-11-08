@@ -1,4 +1,4 @@
-//! Audio download pipeline for bilibili:
+//! Audio download pipeline:
 //!
 //! 1. [`Service::resolve`] turns ids / urls / favorites / collections into
 //!    [`Track`]s with metadata,
@@ -16,20 +16,20 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bili::{AudioPreference, AudioStream, Client, CookieJar, NavInfo};
 use futures_util::{stream, StreamExt};
 use network_tools::{DownloadRequest, Downloader, ProgressSink};
+use source_api::{AudioPreference, AudioStream, Client, CookieJar, NavInfo};
 
-pub use bili;
 pub use input::{parse_input, Input, PageSelection};
 pub use media;
 pub use network_tools;
+pub use source_api;
 pub use track::{ResolveOptions, Track, TrackKind};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Bili(#[from] bili::Error),
+    Source(#[from] source_api::Error),
     #[error("download failed: {0}")]
     Download(#[from] network_tools::Error),
     #[error("audio extraction failed: {0}")]
@@ -64,7 +64,7 @@ pub struct DownloadOptions {
     pub retries: u32,
     pub overwrite: bool,
     pub embed_cover: bool,
-    /// Use bilibili's recognised music title (BGM) as track title.
+    /// Use the recognised music title (BGM) as track title.
     pub use_bgm_title: bool,
 }
 
@@ -115,7 +115,7 @@ pub enum Outcome {
         resumed: u64,
         /// Better tiers the video offers but the server withheld from this
         /// session (e.g. Hi-Res for non-VIP accounts), best first.
-        withheld: Vec<bili::AudioQuality>,
+        withheld: Vec<source_api::AudioQuality>,
     },
     /// The output already existed.
     Skipped { path: PathBuf },
@@ -362,14 +362,14 @@ impl Service {
             let streams = play.audio_streams();
             let stream = opts.audio.select(&streams).ok_or(Error::NoAudio)?.clone();
             // only report tiers the user's preference would have accepted
-            let withheld: Vec<bili::AudioQuality> = play
+            let withheld: Vec<source_api::AudioQuality> = play
                 .locked_qualities()
                 .into_iter()
                 .filter(|q| {
                     stream.quality.is_none_or(|got| *q > got)
                         && opts.audio.max_quality.is_none_or(|max| *q <= max)
-                        && (opts.audio.allow_dolby || *q != bili::AudioQuality::Dolby)
-                        && (opts.audio.allow_hires || *q != bili::AudioQuality::HiRes)
+                        && (opts.audio.allow_dolby || *q != source_api::AudioQuality::Dolby)
+                        && (opts.audio.allow_hires || *q != source_api::AudioQuality::HiRes)
                 })
                 .collect();
             reporter.status(job, &stream.label());
@@ -438,7 +438,7 @@ fn non_empty(s: &str) -> Option<String> {
 pub fn metadata(track: &Track, stream: &AudioStream, cover: Option<Vec<u8>>) -> media::Metadata {
     let mut custom = vec![
         ("BVID".to_owned(), track.bvid.clone()),
-        ("BILIBILI_CID".to_owned(), track.cid.to_string()),
+        ("SOURCE_CID".to_owned(), track.cid.to_string()),
         ("SOURCE_URL".to_owned(), track.url()),
         ("AUDIO_QUALITY".to_owned(), stream.label()),
     ];

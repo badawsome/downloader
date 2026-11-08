@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use crate::models::PlayUrl;
 
-/// Known bilibili audio qualities, ordered from worst to best.
+/// Known source audio qualities, ordered from worst to best.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AudioQuality {
     /// 64 kbps AAC (`30216`)
@@ -163,7 +163,7 @@ fn sort_urls(urls: &mut [String]) {
 
 impl PlayUrl {
     /// Qualities this video has but which were withheld from the current
-    /// session (bilibili flags them without sending the stream). Typically
+    /// session (the source flags them without sending the stream). Typically
     /// Hi-Res / Dolby for anonymous or non-VIP accounts. Best first.
     pub fn locked_qualities(&self) -> Vec<AudioQuality> {
         let Some(dash) = &self.dash else {
@@ -289,8 +289,8 @@ mod tests {
     use crate::models::*;
 
     fn stream(id: u32, bw: u64) -> serde_json::Value {
-        serde_json::json!({"id": id, "base_url": format!("https://upos-sz.bilivideo.com/{id}"),
-            "backup_url": [format!("https://xy1x2x3x4xy.mcdn.bilivideo.cn:4483/{id}")], "bandwidth": bw, "codecs": "mp4a"})
+        serde_json::json!({"id": id, "base_url": format!("https://upos-sz.example.com/{id}"),
+            "backup_url": [format!("https://xy1x2x3x4xy.mcdn.example.net:4483/{id}")], "bandwidth": bw, "codecs": "mp4a"})
     }
 
     fn playurl(login: bool) -> PlayUrl {

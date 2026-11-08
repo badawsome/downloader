@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// A bilibili video id.
+/// A source video id.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VideoId {
     Aid(u64),
@@ -107,15 +107,15 @@ mod tests {
         assert_eq!(VideoId::parse("BV1Vh4y1v7q"), None);
         assert_eq!(VideoId::parse("hello"), None);
         assert_eq!(
-            VideoId::find_in("https://www.bilibili.com/video/BV1Vh4y1v7qn/?p=2&spm=x"),
+            VideoId::find_in("https://www.example.com/video/BV1Vh4y1v7qn/?p=2&spm=x"),
             Some(VideoId::Bvid("BV1Vh4y1v7qn".into()))
         );
         assert_eq!(
-            VideoId::find_in("https://m.bilibili.com/video/av170001?p=1"),
+            VideoId::find_in("https://m.example.com/video/av170001?p=1"),
             Some(VideoId::Aid(170001))
         );
         assert_eq!(
-            VideoId::find_in("https://space.bilibili.com/1/favlist"),
+            VideoId::find_in("https://space.example.com/1/favlist"),
             None
         );
         assert_eq!(VideoId::Aid(1).to_string(), "av1");

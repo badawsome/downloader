@@ -1,4 +1,4 @@
-//! HTTP client for the bilibili web API.
+//! HTTP client for the source API.
 
 use std::sync::RwLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -15,10 +15,9 @@ use crate::wbi;
 use crate::{Error, Result};
 
 pub const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
-pub const REFERER: &str = "https://www.bilibili.com/";
+pub use crate::protocol::REFERER;
 
-const API: &str = "https://api.bilibili.com";
-const PASSPORT: &str = "https://passport.bilibili.com";
+use crate::protocol::{API_BASE, CSRF_COOKIE, PASSPORT_BASE};
 const API_TIMEOUT: Duration = Duration::from_secs(20);
 const WBI_KEY_TTL: Duration = Duration::from_secs(60 * 60);
 /// `fnval`: DASH(16) | HDR(64) | 4K(128) | Dolby audio(256) | Dolby
@@ -46,7 +45,7 @@ pub enum QrStatus {
     Success(CookieJar),
 }
 
-/// A QR code to scan with the bilibili app.
+/// A QR code to scan with the source app.
 #[derive(Debug, Clone, Deserialize)]
 pub struct QrCode {
     pub url: String,
@@ -91,8 +90,8 @@ impl Client {
         };
         Ok(Self {
             http,
-            api: env("BILI_API_BASE", API),
-            passport: env("BILI_PASSPORT_BASE", PASSPORT),
+            api: env("DC_API_BASE", API_BASE),
+            passport: env("DC_PASSPORT_BASE", PASSPORT_BASE),
             cookies: RwLock::new(cookies),
             wbi_key: Mutex::new(None),
             buvid: OnceCell::new(),
@@ -101,7 +100,7 @@ impl Client {
         })
     }
 
-    /// Headers needed by the bilibili CDN (referer check) and API.
+    /// Headers needed by the source CDN (referer check) and API.
     pub fn browser_headers() -> HeaderMap {
         let mut h = HeaderMap::new();
         h.insert(header::USER_AGENT, HeaderValue::from_static(USER_AGENT));
@@ -397,7 +396,7 @@ impl Client {
                             if let Some((k, v)) = kv.split_once('=') {
                                 if matches!(
                                     k,
-                                    "SESSDATA" | "bili_jct" | "DedeUserID" | "DedeUserID__ckMd5"
+                                    "SESSDATA" | CSRF_COOKIE | "DedeUserID" | "DedeUserID__ckMd5"
                                 ) {
                                     jar.set(k, v);
                                 }
@@ -470,7 +469,7 @@ impl Client {
         }
     }
 
-    /// Background music recognised by bilibili for a video page, if any.
+    /// Background music recognised by the source for a video page, if any.
     pub async fn bgm_info(&self, id: &VideoId, cid: u64) -> Result<Option<BgmInfo>> {
         #[derive(Deserialize)]
         struct Player {
@@ -666,7 +665,7 @@ impl Client {
 
     // ------------------------------------------------------------ helpers
 
-    /// Follows a short link (`https://b23.tv/xxxx`) and returns the target.
+    /// Follows a short link (provided by the source) and returns the target.
     pub async fn resolve_short_url(&self, url: &str) -> Result<String> {
         let resp = self.http.get(url).timeout(API_TIMEOUT).send().await?;
         Ok(resp.url().to_string())
@@ -696,7 +695,7 @@ impl Client {
     }
 }
 
-/// Upgrades `http://` and protocol relative (`//i0.hdslb.com`) urls.
+/// Upgrades `http://` and protocol relative (`//i0.example.com`) urls.
 pub fn normalize_url(url: &str) -> String {
     let url = url.trim();
     if let Some(rest) = url.strip_prefix("//") {
@@ -715,18 +714,18 @@ mod tests {
     #[test]
     fn urls() {
         assert_eq!(
-            normalize_url("http://i0.hdslb.com/a.jpg"),
-            "https://i0.hdslb.com/a.jpg"
+            normalize_url("http://i0.example.com/a.jpg"),
+            "https://i0.example.com/a.jpg"
         );
         assert_eq!(
-            normalize_url("//i0.hdslb.com/a.jpg"),
-            "https://i0.hdslb.com/a.jpg"
+            normalize_url("//i0.example.com/a.jpg"),
+            "https://i0.example.com/a.jpg"
         );
         assert_eq!(normalize_url("https://x"), "https://x");
     }
 
     // Live API tests; run with `cargo test -- --ignored` on a network that
-    // can reach bilibili.
+    // can reach the source API.
     #[tokio::test]
     #[ignore]
     async fn live_view_and_playurl() -> anyhow::Result<()> {

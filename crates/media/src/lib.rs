@@ -4,7 +4,7 @@
 //!   files — video tracks are dropped;
 //! * remuxes AAC / E-AC-3 (Dolby) / other codecs into a standard,
 //!   non-fragmented, "fast start" `.m4a`;
-//! * unwraps FLAC-in-MP4 (bilibili Hi-Res) into a native `.flac` stream;
+//! * unwraps FLAC-in-MP4 (Hi-Res audio) into a native `.flac` stream;
 //! * embeds metadata (iTunes atoms or Vorbis comments) and cover art.
 //!
 //! No FFmpeg or any other native library is needed.

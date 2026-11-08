@@ -24,7 +24,7 @@ thiserror = { version = "1" }
 futures-util = { version = "0.3.30" }
 anyhow = { version = "1" }
 
-bili = { path = "crates/bili" }
+source-api = { path = "crates/source-api" }
 media = { path = "crates/media" }
 network-tools = { path = "crates/network-tools" }
-bili-service = { path = "service/bili" }
+download-service = { path = "service/download-service" }

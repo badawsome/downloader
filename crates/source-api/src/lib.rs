@@ -1,4 +1,4 @@
-//! bilibili web API client focused on audio downloading.
+//! Source API client focused on audio downloading.
 //!
 //! * anonymous and cookie / QR-code login sessions,
 //! * WBI request signing,
@@ -12,6 +12,7 @@ mod cookie;
 mod error;
 mod id;
 mod models;
+pub mod protocol;
 mod search;
 pub mod wbi;
 

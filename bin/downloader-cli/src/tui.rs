@@ -7,9 +7,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bili_service::bili::{Client, SearchItem, SearchOptions, SearchOrder, SearchPage};
-use bili_service::naming::format_date;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use download_service::naming::format_date;
+use download_service::source_api::{Client, SearchItem, SearchOptions, SearchOrder, SearchPage};
 use futures_util::StreamExt;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};

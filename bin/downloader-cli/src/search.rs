@@ -2,10 +2,10 @@
 
 use std::io::{IsTerminal, Write};
 
-use bili_service::bili::{SearchItem, SearchOptions, SearchPage};
-use bili_service::naming::format_date;
-use bili_service::{PageSelection, Service};
 use console::{style, Alignment, Term};
+use download_service::naming::format_date;
+use download_service::source_api::{SearchItem, SearchOptions, SearchPage};
+use download_service::{PageSelection, Service};
 
 use crate::out::{self, cell};
 

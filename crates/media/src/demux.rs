@@ -1,5 +1,5 @@
 //! Reads the audio track of an MP4 file — either fragmented (DASH `.m4s`, as
-//! served by bilibili) or progressive (classic `.mp4` with video) — into a
+//! served by the source) or progressive (classic `.mp4` with video) — into a
 //! flat list of samples pointing into the source file.
 
 use std::io::{Read, Seek};

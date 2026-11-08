@@ -1,4 +1,4 @@
-# dc — bilibili 音频下载器
+# dc — 音频下载器
 
 只下载音频（不下载视频画面），自动选择当前账号可获取的最高音质，写入完整元数据与封面，支持分片并行与断点续传。纯 Rust 实现，**不依赖 FFmpeg / OpenSSL 等外部程序或系统库**，Windows / macOS / Linux / FreeBSD 均可直接运行。
 
@@ -15,7 +15,7 @@
 | 稳定性 | 分片级重试 + 指数退避、空闲超时、多镜像（backup_url）按健康度切换，PCDN/MCDN 节点自动后置 |
 | 断点续传 | 每完成一个分片即记录到 `<文件>.part.state`；中断（含 Ctrl-C）后重跑同一命令即可续传，即使 CDN 链接已重新签名 |
 | 搜索 | `dc search` 全屏选择界面：方向键移动、空格多选（跨页保留）、翻页、改关键词、切换排序 / 音乐区，Enter 下载；不支持全屏的终端用 `--plain` 行模式（`TERM=dumb` 或初始化失败时自动回退） |
-| 输入 | BV/av 号、视频链接（含 `?p=`）、`b23.tv` 短链、合集链接、收藏夹（`fav:<id>`、`ml<id>`、favlist 链接） |
+| 输入 | BV/av 号、视频链接（含 `?p=`）、短链、合集链接、收藏夹（`fav:<id>`、`ml<id>`、favlist 链接） |
 
 ## 安装
 
@@ -27,12 +27,14 @@ cargo install --path bin/downloader-cli   # 只需要 Rust 工具链
 
 ## 使用
 
+示例中的 `VIDEO_URL`、`SHORT_URL`、`COLLECTION_URL` 需替换为你要下载的视频、短链和合集链接。
+
 ```sh
 # 下载单个视频的音频（未登录时最高 192K）
 dc get BV1Vh4y1v7qn
 
 # 视频链接 / 短链 / 多 P 中的某一 P
-dc get "https://www.bilibili.com/video/BV1Vh4y1v7qn/?p=2" https://b23.tv/xxxx
+dc get "$VIDEO_URL" "$SHORT_URL"
 
 # 下载视频所属的整个合集（--items 只取列表中的部分曲目）
 dc get BV13m421J7fM --season -o ~/Music
@@ -42,8 +44,8 @@ dc get BV13m421J7fM --season --items 1-10,97
 dc get BV17xxLeaEQ4 --pages 1-3,9
 
 # 收藏夹、合集页面
-dc get "https://space.bilibili.com/123/favlist?fid=456"
-dc get "https://space.bilibili.com/123/lists/789?type=season"
+dc get fav:456
+dc get "$COLLECTION_URL"
 
 # 搜索：全屏选择界面，按键即时生效
 #   ↑↓ 移动 · 空格 选中 · a 全选本页 · ←→ 翻页 · / 改关键词 · o 排序 · m 只看音乐区 · Enter 下载 · q 退出
@@ -55,7 +57,7 @@ dc search 晴天 --plain                                     # 行模式（不�
 # 只看会下载什么、有哪些音质（* 为将被选中的）
 dc info BV1Vh4y1v7qn
 
-# 登录（终端显示二维码，用 B 站 App 扫码），之后自动使用 Hi-Res / 杜比音质
+# 登录（终端显示二维码，用来源 App 扫码），之后自动使用 Hi-Res / 杜比音质
 dc login
 dc status
 dc logout
@@ -86,7 +88,7 @@ dc logout
 可用变量：`{title} {artist} {album} {collection} {video_title} {part} {index} {total} {page} {bvid} {aid} {cid} {date} {year}`。
 扩展名按编码自动决定（`.m4a` / `.flac`）。
 
-默认会用 B 站识别出的 BGM 曲名作为标题（翻唱视频常常更干净；会去掉 `发现《…》` 包装和 `(伴奏)` 等后缀），不需要时加 `--no-bgm-title`。
+默认会用来源识别出的 BGM 曲名作为标题（翻唱视频常常更干净；会去掉 `发现《…》` 包装和 `(伴奏)` 等后缀），不需要时加 `--no-bgm-title`。
 多 P 视频的分 P 标题若自带与序号重复的编号（如 `001.周杰伦-爱在西元前`）会自动去掉。
 
 ### 进度显示
@@ -104,24 +106,24 @@ dc logout
 
 ### 登录信息
 
-优先级：`--cookie "SESSDATA=...; bili_jct=..."` / 环境变量 `DC_COOKIE` > `--cookie-file`（Cookie 头或 Netscape `cookies.txt`）> `dc login` 保存的会话。
+优先级：`--cookie "SESSDATA=..."` / 环境变量 `DC_COOKIE` > `--cookie-file`（Cookie 头或 Netscape `cookies.txt`）> `dc login` 保存的会话。
 会话保存在系统配置目录（`~/.config/dc`、`%APPDATA%\dc`、`~/Library/Application Support/dc`），可用 `DC_CONFIG_DIR` 修改。
 
-`BILI_API_BASE` / `BILI_PASSPORT_BASE` 可替换 API 地址（反向代理或测试用）。
+`DC_API_BASE` / `DC_PASSPORT_BASE` 可替换 API 地址（反向代理或测试用）。
 
 ## 项目结构
 
 ```
-bin/downloader-cli   dc 命令行：参数、进度条、二维码登录、会话存储
-service/bili         下载编排：输入解析 → 曲目/元数据 → 命名 → 选流 → 下载 → 封装打标签
-crates/bili          B 站 API：WBI 签名、Cookie/扫码登录、视频/合集/收藏夹、音频流发现与音质选择
-crates/network-tools 通用下载引擎：Range 分片并行、重试、镜像切换、断点续传
-crates/media         纯 Rust MP4/fMP4 处理：抽取音频轨、重封装为 M4A、FLAC 解封装、写 iTunes/Vorbis 标签与封面
+bin/downloader-cli        dc 命令行：参数、进度条、二维码登录、会话存储
+service/download-service 下载编排：输入解析 → 曲目/元数据 → 命名 → 选流 → 下载 → 封装打标签
+crates/source-api        来源 API：WBI 签名、Cookie/扫码登录、视频/合集/收藏夹、音频流发现与音质选择
+crates/network-tools     通用下载引擎：Range 分片并行、重试、镜像切换、断点续传
+crates/media             纯 Rust MP4/fMP4 处理：抽取音频轨、重封装为 M4A、FLAC 解封装、写 iTunes/Vorbis 标签与封面
 ```
 
 ## 开发
 
 ```sh
 cargo test --workspace            # 离线测试（装有 ffmpeg 时会额外做解码校验）
-cargo test -p bili -- --ignored   # 访问真实 B 站 API 的测试
+cargo test -p source-api -- --ignored   # 访问真实来源 API 的测试
 ```

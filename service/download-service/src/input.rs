@@ -1,12 +1,13 @@
 //! Parsing of user supplied inputs (ids, urls, short links, lists).
 
-use bili::VideoId;
+use source_api::protocol::{SHORT_LINK_HOSTS, SPACE_HOST};
+use source_api::VideoId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Input {
     /// A video; `page` is set when the url points at one part (`?p=3`).
     Video { id: VideoId, page: Option<u32> },
-    /// `b23.tv` style short link, resolved over the network.
+    /// A short link, resolved over the network.
     ShortLink(String),
     /// Favorites folder (收藏夹).
     Favorites { media_id: u64 },
@@ -35,7 +36,10 @@ pub fn parse_input(raw: &str) -> Result<Input, String> {
     let s = raw.trim();
     let lower = s.to_ascii_lowercase();
 
-    if lower.contains("b23.tv/") || lower.contains("bili2233.cn/") {
+    if SHORT_LINK_HOSTS
+        .iter()
+        .any(|host| lower.contains(&format!("{host}/")))
+    {
         let url = if lower.starts_with("http") {
             s.to_owned()
         } else {
@@ -68,10 +72,10 @@ pub fn parse_input(raw: &str) -> Result<Input, String> {
         return Ok(Input::Favorites { media_id: id });
     }
 
-    // collections: space.bilibili.com/<mid>/channel/collectiondetail?sid=<sid>
-    //              space.bilibili.com/<mid>/lists/<sid>?type=season
-    if lower.contains("space.bilibili.com/") {
-        let mid = number_after(&lower, "space.bilibili.com/");
+    // Collections use /<mid>/channel/collectiondetail?sid=<sid> or /<mid>/lists/<sid>?type=season.
+    let space_prefix = format!("{SPACE_HOST}/");
+    if lower.contains(&space_prefix) {
+        let mid = number_after(&lower, &space_prefix);
         let sid = query_param(s, "sid")
             .and_then(|v| v.parse().ok())
             .or_else(|| number_after(&lower, "/lists/"));
@@ -88,7 +92,7 @@ pub fn parse_input(raw: &str) -> Result<Input, String> {
 
     let id = VideoId::parse(s)
         .or_else(|| VideoId::find_in(s))
-        .ok_or_else(|| format!("not a bilibili video id or url: {s}"))?;
+        .ok_or_else(|| format!("not a supported video id or url: {s}"))?;
     let page = query_param(s, "p")
         .and_then(|p| p.parse().ok())
         .filter(|p| *p > 0);
@@ -145,8 +149,7 @@ mod tests {
         };
         assert_eq!(parse_input("BV1Vh4y1v7qn").unwrap(), bv(None));
         assert_eq!(
-            parse_input("https://www.bilibili.com/video/BV1Vh4y1v7qn/?spm_id_from=333&p=3")
-                .unwrap(),
+            parse_input("https://www.example.com/video/BV1Vh4y1v7qn/?spm_id_from=333&p=3").unwrap(),
             bv(Some(3))
         );
         assert_eq!(
@@ -157,11 +160,14 @@ mod tests {
             }
         );
         assert_eq!(
-            parse_input("b23.tv/abcd").unwrap(),
-            Input::ShortLink("https://b23.tv/abcd".into())
+            parse_input(&format!("{}/abcd", SHORT_LINK_HOSTS[0])).unwrap(),
+            Input::ShortLink(format!("https://{}/abcd", SHORT_LINK_HOSTS[0]))
         );
         assert_eq!(
-            parse_input("https://space.bilibili.com/123/favlist?fid=456&ftype=create").unwrap(),
+            parse_input(&format!(
+                "https://{SPACE_HOST}/123/favlist?fid=456&ftype=create"
+            ))
+            .unwrap(),
             Input::Favorites { media_id: 456 }
         );
         assert_eq!(
@@ -173,24 +179,27 @@ mod tests {
             Input::Favorites { media_id: 456 }
         );
         assert_eq!(
-            parse_input("https://www.bilibili.com/list/ml456?oid=1").unwrap(),
+            parse_input("https://www.example.com/list/ml456?oid=1").unwrap(),
             Input::Favorites { media_id: 456 }
         );
         assert_eq!(
-            parse_input("https://space.bilibili.com/123/channel/collectiondetail?sid=789").unwrap(),
+            parse_input(&format!(
+                "https://{SPACE_HOST}/123/channel/collectiondetail?sid=789"
+            ))
+            .unwrap(),
             Input::Collection {
                 mid: 123,
                 season_id: 789
             }
         );
         assert_eq!(
-            parse_input("https://space.bilibili.com/123/lists/789?type=season").unwrap(),
+            parse_input(&format!("https://{SPACE_HOST}/123/lists/789?type=season")).unwrap(),
             Input::Collection {
                 mid: 123,
                 season_id: 789
             }
         );
-        assert!(parse_input("https://space.bilibili.com/123/lists/789?type=series").is_err());
+        assert!(parse_input(&format!("https://{SPACE_HOST}/123/lists/789?type=series")).is_err());
         assert!(parse_input("hello world").is_err());
     }
 

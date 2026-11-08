@@ -132,7 +132,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
-name = "bili"
+name = "source-api"
 version = "0.2.0"
 dependencies = [
  "anyhow",
@@ -145,10 +145,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bili-service"
+name = "download-service"
 version = "0.2.0"
 dependencies = [
- "bili",
+ "source-api",
  "futures-util",
  "media",
  "network-tools",
@@ -402,7 +402,7 @@ name = "dc"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "bili-service",
+ "download-service",
  "clap",
  "console",
  "crossterm",
