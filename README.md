@@ -133,7 +133,7 @@ cargo test -p source-api -- --ignored   # 访问真实来源 API 的测试
 
 版本发布由 GitHub Actions 完成，无需在本机执行 `cargo publish`。
 
-1. 将 `bin/downloader-cli/Cargo.toml` 与 `crates/source-api/Cargo.toml` 的版本同时更新，完成合并。
+1. 将 `bin/downloader-cli/Cargo.toml` 与 `crates/source-api/Cargo.toml` 的版本同时更新，并同步 `Cargo.lock`，完成合并。
 2. 为该提交创建并推送相同版本的标签，例如两个版本均为 `0.2.0` 时：
 
    ```sh
@@ -144,7 +144,17 @@ cargo test -p source-api -- --ignored   # 访问真实来源 API 的测试
 3. 工作流先校验标签和版本、运行测试，再构建全部九个平台的安装包。
 4. 全部构建成功后，自动将 `source-api` 上传到 crates.io；随后公开 GitHub Release，附安装包、逐文件 SHA-256 和 `SHA256SUMS`。
 
-`v0.3.0-rc.1` 这类标签自动标记为 GitHub 预发布。普通合并、PR 和手动检查不会触发发布。失败后可重跑同一个 tag 的工作流；若该版本的 crate 已发布，只有包的 SHA-256 完全一致时才会跳过上传，不覆盖已经发布的不同内容。
+`v0.3.0-rc.1` 这类标签自动标记为 GitHub 预发布。普通合并、PR 和手动检查不会触发发布。标签创建使用 `create` 事件触发，避免合并提交中的 CI 跳过指令阻止发布。失败后可重跑同一个 tag 的工作流；若该版本的 crate 已发布，只有包的 SHA-256 完全一致时才会跳过上传，不覆盖已经发布的不同内容。
+
+### 已有标签的补发
+
+如果标签已经存在但没有产生发布运行，在修复后的 workflow 上指定该标签即可补发，不必移动或重建标签：
+
+```sh
+gh workflow run release.yml --ref master -f release_tag=v0.2.0
+```
+
+流程仍会校验版本、测试并构建全部平台，再发布；所有任务固定使用该标签解析出的同一提交。手动检查不填写 `release_tag`，选择默认分支即可。
 
 ### crate 发布授权（只需设置一次）
 
