@@ -211,7 +211,7 @@ impl ProgressSink for Sink {
         let _ = self
             .stats
             .received
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
                 Some(v.saturating_sub(bytes))
             });
     }
