@@ -1,9 +1,9 @@
 [package]
-name = "bili"
-version = "0.1.2"
+name = "source-api"
+version = "0.2.0"
 edition = "2021"
 authors = ["badcw <badcw123@gmail.com>"]
-description = "a package to get bili api"
+description = "Audio source API client"
 license-file = "LICENSE"
 repository = "https://github.com/badawsome/downloader"
 
@@ -13,12 +13,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 reqwest.workspace = true
-futures-util.workspace = true
-futures.workspace = true
-tokio-util.workspace = true
-
-derive_builder = { version = "0.20.0" }
-derive-getters = { version = "0.3.0" }
+md-5 = { version = "0.10" }
 
 [dev-dependencies]
-anyhow = { version = "1" }
+anyhow.workspace = true

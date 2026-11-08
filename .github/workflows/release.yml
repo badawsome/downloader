@@ -2,93 +2,86 @@ name: Tests and release
 
 on:
   push:
-    branches:
-      - "**"
-    tags-ignore:
-      - "dc-*"
+    branches: [master]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
-  CRATE_NAME: dc
-  GITHUB_TOKEN: ${{ github.token }}
   RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: ${{ matrix.platform.os_name }} with rust ${{ matrix.toolchain }}
+  validate:
+    name: Validate and test
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Validate release versions
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: python .github/scripts/release.py validate
+      - name: Check release tooling
+        run: python -m unittest discover -s .github/scripts -p 'test_*.py'
+      - run: cargo fmt --all --check
+      - run: cargo test --workspace --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Verify the publishable crate
+        run: cargo package -p source-api --locked
+
+  build:
+    name: ${{ matrix.platform.os_name }} with rust stable
+    needs: validate
     runs-on: ${{ matrix.platform.os }}
     strategy:
       fail-fast: false
       matrix:
         platform:
           - os_name: FreeBSD-x86_64
-            os: ubuntu-20.04
+            os: ubuntu-24.04
             target: x86_64-unknown-freebsd
             bin: dc
             name: dc-FreeBSD-x86_64.tar.gz
             skip_tests: true
           - os_name: Linux-x86_64
-            os: ubuntu-20.04
+            os: ubuntu-24.04
             target: x86_64-unknown-linux-musl
             bin: dc
             name: dc-Linux-x86_64-musl.tar.gz
           - os_name: Linux-aarch64
-            os: ubuntu-20.04
+            os: ubuntu-24.04
             target: aarch64-unknown-linux-musl
             bin: dc
             name: dc-Linux-aarch64-musl.tar.gz
           - os_name: Linux-arm
-            os: ubuntu-20.04
+            os: ubuntu-24.04
             target: arm-unknown-linux-musleabi
             bin: dc
             name: dc-Linux-arm-musl.tar.gz
           - os_name: Linux-i686
-            os: ubuntu-20.04
+            os: ubuntu-24.04
             target: i686-unknown-linux-musl
             bin: dc
             name: dc-Linux-i686-musl.tar.gz
             skip_tests: true
-          # - os_name: Linux-powerpc
-          #   os: ubuntu-20.04
-          #   target: powerpc-unknown-linux-gnu
-          #   bin: dc
-          #   name: dc-Linux-powerpc-gnu.tar.gz
-          #   skip_tests: true
-          # - os_name: Linux-powerpc64
-          #   os: ubuntu-20.04
-          #   target: powerpc64-unknown-linux-gnu
-          #   bin: dc
-          #   name: dc-Linux-powerpc64-gnu.tar.gz
-          #   skip_tests: true
-          # - os_name: Linux-powerpc64le
-          #   os: ubuntu-20.04
-          #   target: powerpc64le-unknown-linux-gnu
-          #   bin: dc
-          #   name: dc-Linux-powerpc64le.tar.gz
-          #   skip_tests: true
-          # - os_name: Linux-riscv64
-          #   os: ubuntu-20.04
-          #   target: riscv64gc-unknown-linux-gnu
-          #   bin: dc
-          #   name: dc-Linux-riscv64gc-gnu.tar.gz
-          # - os_name: Linux-s390x
-          #   os: ubuntu-20.04
-          #   target: s390x-unknown-linux-gnu
-          #   bin: dc
-          #   name: dc-Linux-s390x-gnu.tar.gz
-          #   skip_tests: true
-          # - os_name: NetBSD-x86_64
-          #   os: ubuntu-20.04
-          #   target: x86_64-unknown-netbsd
-          #   bin: dc
-          #   name: dc-NetBSD-x86_64.tar.gz
-          #   skip_tests: true
-          # - os_name: Windows-aarch64
-          #   os: windows-latest
-          #   target: aarch64-pc-windows-msvc
-          #   bin: dc.exe
-          #   name: dc-Windows-aarch64.zip
-          #   skip_tests: true
           - os_name: Windows-i686
             os: windows-latest
             target: i686-pc-windows-msvc
@@ -101,77 +94,115 @@ jobs:
             bin: dc.exe
             name: dc-Windows-x86_64.zip
           - os_name: macOS-x86_64
-            os: macOS-latest
+            os: macos-15-intel
             target: x86_64-apple-darwin
             bin: dc
             name: dc-Darwin-x86_64.tar.gz
           - os_name: macOS-aarch64
-            os: macOS-latest
+            os: macos-15
             target: aarch64-apple-darwin
             bin: dc
             name: dc-Darwin-aarch64.tar.gz
-            skip_tests: true
-        toolchain:
-          - stable
-          # - nightly
     steps:
       - uses: actions/checkout@v4
-      - name: Cache cargo & target directories
-        uses: Swatinem/rust-cache@v2
-      - name: Configure Git
-        run: |
-          git config --global user.email "badcw123@gmail.com"
-          git config --global user.name "badcw"
-      - name: Install musl-tools on Linux
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install native musl toolchain
+        if: matrix.platform.target == 'x86_64-unknown-linux-musl'
         run: sudo apt-get update --yes && sudo apt-get install --yes musl-tools
-        if: contains(matrix.platform.name, 'musl')
       - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v0
+        uses: houseabsolute/actions-rust-cross@v1
         with:
-          command: "build"
+          command: build
           target: ${{ matrix.platform.target }}
-          toolchain: ${{ matrix.toolchain }}
-          args: "--locked --release"
+          toolchain: stable
+          args: "--workspace --locked --release"
           strip: true
-      - name: Run tests
-        uses: houseabsolute/actions-rust-cross@v0
-        with:
-          command: "test"
-          target: ${{ matrix.platform.target }}
-          toolchain: ${{ matrix.toolchain }}
-          args: "--locked --release"
+      - name: Run platform tests
         if: ${{ !matrix.platform.skip_tests }}
-      - name: Package as archive
-        shell: bash
-        run: |
-          cd target/${{ matrix.platform.target }}/release
-          if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
-            7z a ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
-          else
-            tar czvf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
-          fi
-          cd -
-        if: |
-          matrix.toolchain == 'stable' &&
-          ( startsWith( github.ref, 'refs/tags/v' ) ||
-            github.ref == 'refs/tags/test-release' )
-      - name: Publish release artifacts
-        uses: actions/upload-artifact@v4
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: test
+          target: ${{ matrix.platform.target }}
+          toolchain: stable
+          args: "--workspace --locked --release"
+      - name: Package binary and checksum
+        env:
+          TARGET: ${{ matrix.platform.target }}
+          BINARY: ${{ matrix.platform.bin }}
+          ARCHIVE: ${{ matrix.platform.name }}
+        run: python .github/scripts/release.py pack
+      - uses: actions/upload-artifact@v4
         with:
           name: dc-${{ matrix.platform.os_name }}
-          path: "dc-*"
-        if: matrix.toolchain == 'stable' && github.ref == 'refs/tags/test-release'
-      - name: Generate SHA-256
-        run: shasum -a 256 ${{ matrix.platform.name }}
-        if: |
-          matrix.toolchain == 'stable' &&
-          matrix.platform.os == 'macOS-latest' &&
-          ( startsWith( github.ref, 'refs/tags/v' ) ||
-            github.ref == 'refs/tags/test-release' )
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish-crate:
+    name: Publish source-api to crates.io
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          draft: true
-          files: "dc-*"
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo package -p source-api --locked
+      - name: Check whether this exact package was already published
+        id: registry
+        run: python .github/scripts/release.py registry
+      - name: Check bootstrap credentials
+        if: steps.registry.outputs.published != 'true'
+        id: credentials
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        shell: bash
+        run: |
+          if [ -n "$CARGO_REGISTRY_TOKEN" ]; then
+            echo 'has_token=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'has_token=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Authenticate with crates.io Trusted Publishing
+        if: steps.registry.outputs.published != 'true' && steps.credentials.outputs.has_token != 'true'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish crate
+        if: steps.registry.outputs.published != 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.auth.outputs.token }}
+        run: cargo publish -p source-api --locked
+
+  release:
+    name: Publish GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [validate, build, publish-crate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dc-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify all platform archives and collect checksums
+        run: python .github/scripts/release.py verify-assets --count 9
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: ${{ needs.validate.outputs.prerelease == 'true' }}
           body_path: RELEASE_NOTES.md
-        if: matrix.toolchain == 'stable' && startsWith( github.ref, 'refs/tags/v' )
+          fail_on_unmatched_files: true
+          files: release-assets/*

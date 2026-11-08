@@ -1,0 +1,16 @@
+[package]
+name = "download-service"
+version = "0.2.0"
+edition = "2021"
+description = "Resolve source inputs into audio tracks and download them with metadata"
+
+[dependencies]
+source-api.workspace = true
+media.workspace = true
+network-tools.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

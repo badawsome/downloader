@@ -1,0 +1,8 @@
+[package]
+name = "media"
+version = "0.1.0"
+edition = "2021"
+description = "Pure Rust ISO-BMFF (fragmented MP4 / m4s) audio extraction, remuxing to M4A/FLAC and tag writing"
+
+[dependencies]
+thiserror.workspace = true
