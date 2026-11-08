@@ -3,16 +3,22 @@ name: Tests and release
 on:
   push:
     branches: [master]
-    tags: ["v*"]
+  create:
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing version tag to publish; leave empty for checks only"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: ${{ github.workflow }}-${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
+  cancel-in-progress: ${{ inputs.release_tag == '' && !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   RUST_BACKTRACE: 1
@@ -21,12 +27,21 @@ env:
 jobs:
   validate:
     name: Validate and test
+    if: github.event_name != 'create' || (github.event.ref_type == 'tag' && startsWith(github.event.ref, 'v'))
     runs-on: ubuntu-24.04
     outputs:
+      tag: ${{ inputs.release_tag || (github.ref_type == 'tag' && github.ref_name || '') }}
+      sha: ${{ steps.source.outputs.sha }}
       version: ${{ steps.version.outputs.version }}
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
+      - name: Record the exact source commit
+        id: source
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -37,7 +52,7 @@ jobs:
       - name: Validate release versions
         id: version
         env:
-          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'tag' && github.ref_name || '') }}
         run: python .github/scripts/release.py validate
       - name: Check release tooling
         run: python -m unittest discover -s .github/scripts -p 'test_*.py'
@@ -105,6 +120,8 @@ jobs:
             name: dc-Darwin-aarch64.tar.gz
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -141,7 +158,7 @@ jobs:
 
   publish-crate:
     name: Publish source-api to crates.io
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: needs.validate.outputs.tag != ''
     needs: [validate, build]
     runs-on: ubuntu-24.04
     permissions:
@@ -149,6 +166,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -182,13 +201,15 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: needs.validate.outputs.tag != ''
     needs: [validate, build, publish-crate]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -201,6 +222,8 @@ jobs:
         run: python .github/scripts/release.py verify-assets --count 9
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          target_commitish: ${{ needs.validate.outputs.sha }}
           draft: false
           prerelease: ${{ needs.validate.outputs.prerelease == 'true' }}
           body_path: RELEASE_NOTES.md
