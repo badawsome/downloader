@@ -10,3 +10,5 @@ target/
 *.pdb
 
 tests_download/
+# Python release-tooling cache
+__pycache__/

@@ -3,6 +3,7 @@
 ## v0.2.0
 
 Feature:
+- automatic tag releases: tests and all platform builds, crates.io publication of `source-api`, then a public GitHub Release with checksums
 - audio only: download DASH audio streams, video tracks are never kept (progressive MP4 fallback is demuxed locally)
 - quality: best anonymous quality (192K AAC, `try_look`), Hi-Res FLAC and Dolby Atmos when logged in; `--quality`, `--no-dolby`
 - login: `dc login` (QR code), `dc logout`, `dc status`, `--cookie`, `--cookie-file`, `DC_COOKIE`

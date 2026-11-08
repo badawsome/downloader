@@ -127,3 +127,29 @@ crates/media             纯 Rust MP4/fMP4 处理：抽取音频轨、重封装�
 cargo test --workspace            # 离线测试（装有 ffmpeg 时会额外做解码校验）
 cargo test -p source-api -- --ignored   # 访问真实来源 API 的测试
 ```
+
+
+## 自动发布
+
+版本发布由 GitHub Actions 完成，无需在本机执行 `cargo publish`。
+
+1. 将 `bin/downloader-cli/Cargo.toml` 与 `crates/source-api/Cargo.toml` 的版本同时更新，完成合并。
+2. 为该提交创建并推送相同版本的标签，例如两个版本均为 `0.2.0` 时：
+
+   ```sh
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+3. 工作流先校验标签和版本、运行测试，再构建全部九个平台的安装包。
+4. 全部构建成功后，自动将 `source-api` 上传到 crates.io；随后公开 GitHub Release，附安装包、逐文件 SHA-256 和 `SHA256SUMS`。
+
+`v0.3.0-rc.1` 这类标签自动标记为 GitHub 预发布。普通合并、PR 和手动检查不会触发发布。失败后可重跑同一个 tag 的工作流；若该版本的 crate 已发布，只有包的 SHA-256 完全一致时才会跳过上传，不覆盖已经发布的不同内容。
+
+### crate 发布授权（只需设置一次）
+
+首次发布新名称时，在 crates.io 创建有权发布 `source-api` 的 API token，并存入本仓库 GitHub Actions secret `CARGO_REGISTRY_TOKEN`。首次上传仍由 tag 工作流执行，无需手动 `cargo publish`。不要将 token 写入源码或文档。
+
+首次成功后，也可以改用 [crates.io Trusted Publishing](https://crates.io/docs/trusted-publishing)：仓库 owner 为 `badawsome`，仓库名 `downloader`，workflow 文件名 `release.yml`，环境名留空。配置完成后删除上述 secret，工作流会自动使用 OIDC 获取短期发布凭据。
+
+本流程发布的库名称为 `source-api`。包名属于 crates.io 的独立身份；改名不会迁移旧名称下的版本或使用方。其他 workspace 包当前只用于构建，不在此流程中上传到 crates.io。
